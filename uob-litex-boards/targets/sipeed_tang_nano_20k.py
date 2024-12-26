@@ -95,7 +95,6 @@ class NesInst(LiteXModule):
         self.wb_rom = wb_rom = wishbone.Interface(data_width=16, address_width=21, addressing="word")
         self.specials += Instance("Nes",
             p_clockbuf = "none",
-            i_ignore_sync = 1,
             i_clock = nes_clk,
             i_reset = 0,
             o_testo = self.testo,
