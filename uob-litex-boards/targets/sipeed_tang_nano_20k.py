@@ -134,22 +134,15 @@ class NesInst(LiteXModule):
         vidtest = PRBS31Generator(24)
         vidtest = ClockDomainsRenamer( {"sys" : "hdmi"} )(vidtest)
         self.fifo = ClockDomainsRenamer( {"sys": "hdmi"} )(fifo)
-        print(self.fifo.__dict__.keys())
-        for att in dir(self.fifo):
-            t = getattr(self.fifo,att)
-            print (att, t)
-            for a in dir(t):
-                u = getattr(t,a)
-                print (att, ", ", a, ": ", u)
         self.submodules += [vidtest, self.vid_select, self.fifo]
         self.comb += Case(self.vid_select.storage, {
                 0: [self.vin.ready.eq(self.vout.ready),
                     self.vout.hsync.eq(self.vin.hsync),
                     self.vout.vsync.eq(self.vin.vsync),
                     self.vout.de.eq(self.vin.de),
-                    self.vout.r.eq(self.vin.r),
-                    self.vout.g.eq(self.vin.g),
-                    self.vout.b.eq(self.vin.b)],
+                    self.vout.r.eq(255), 
+                    self.vout.g.eq(0), 
+                    self.vout.b.eq(255)],
                 1: [self.vin.ready.eq(self.vout.ready),
                     self.vout.hsync.eq(self.vin.hsync),
                     self.vout.vsync.eq(self.vin.vsync),
