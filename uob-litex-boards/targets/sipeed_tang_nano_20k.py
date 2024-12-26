@@ -81,6 +81,7 @@ class NesInst(LiteXModule):
     def __init__(self, core, platform, sys_clk_freq):
         nes = Nes(platform)
         self.vin = Endpoint(video_data_layout)
+        self.testo = Signal()
         sys_clk = ClockSignal("sys")
         nes_clk = ClockSignal("nes")
         hdmi_data = Signal(24)
@@ -94,8 +95,11 @@ class NesInst(LiteXModule):
         self.specials += Instance("Nes",
             p_random_noise = 1,
             p_clockbuf = "ibuf",
+            p_softcpu = 0,
+            i_ignore_sync = 1,
             i_clock = nes_clk,
             i_reset = 0,
+            o_testo = self.testo,
             o_hdmi_pixel_out = hdmi_data,
             i_hdmi_vsync = self.vin.vsync,
             o_hdmi_valid_out = hdmi_data_valid,
@@ -153,9 +157,10 @@ class NesInst(LiteXModule):
                     self.vout.g.eq(vidtest.o[8:15]), 
                     self.vout.b.eq(vidtest.o[16:23])],
                 3: [self.vin.ready.eq(self.vout.ready),
+                    self.vout.valid.eq(self.vin.valid),
                     self.vout.hsync.eq(self.vin.hsync),
                     self.vout.vsync.eq(self.vin.vsync),
-                    self.vout.de.eq(self.vin.de),
+                    self.vout.de.eq(self.vin.de),   
                     self.vout.r.eq(hdmi_data[0:7]), 
                     self.vout.g.eq(hdmi_data[8:15]), 
                     self.vout.b.eq(hdmi_data[16:23])],
@@ -172,7 +177,7 @@ class NesInst(LiteXModule):
 
 class BaseSoC(SoCCore):
     def __init__(self, toolchain="gowin", sys_clk_freq=48e6,
-        with_led_chaser = True,
+        with_led_chaser = False,
         with_rgb_led    = False,
         with_buttons    = True,
         with_video_terminal = False,
@@ -225,6 +230,11 @@ class BaseSoC(SoCCore):
                 pads         = platform.request_all("led_n"),
                 sys_clk_freq = sys_clk_freq
             )
+        else:
+            leds = platform.request_all("led_n")
+            self.comb += [leds[0].eq(nes.testo),
+                leds[1].eq(1),
+            ]
             
         if with_video_terminal:
             print("Adding hdmi output")
