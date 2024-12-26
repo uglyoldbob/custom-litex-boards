@@ -310,7 +310,7 @@ def main():
     from litex.build.parser import LiteXArgumentParser
     parser = LiteXArgumentParser(platform=sipeed_tang_nano_20k.Platform, description="LiteX SoC on Tang Nano 20K.")
     parser.add_target_argument("--flash",        action="store_true",      help="Flash Bitstream.")
-    parser.add_target_argument("--sys-clk-freq", default=54e6, type=float, help="System clock frequency.")
+    parser.add_target_argument("--sys-clk-freq", default=27e6, type=float, help="System clock frequency.")
     parser.add_target_argument("--with-video-terminal", action="store_true",    help="Enable Video Terminal (HDMI).")
     parser.add_target_argument("--with-rgb-led", action="store_true",    help="Enable RGB led.")
     sdopts = parser.target_group.add_mutually_exclusive_group()
