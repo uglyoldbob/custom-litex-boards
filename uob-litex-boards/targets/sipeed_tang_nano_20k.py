@@ -126,7 +126,7 @@ class NesInst(LiteXModule):
         self.vout = Endpoint(video_data_layout)
         self.vid_select = CSRStorage(8)
         self.vidtest = PRBS31Generator(24)
-        self.specials += self.vidtest
+        self.submodules += self.vidtest
         self.comb += Case(self.vid_select.storage, {
                 0: [self.vin.ready.eq(self.vout.ready),
                     self.vout.hsync.eq(self.vin.hsync),
