@@ -103,7 +103,7 @@ class NesInst(LiteXModule):
             o_hdmi_pixel_out = hdmi_data,
             i_hdmi_vsync = self.vin.vsync,
             o_hdmi_valid_out = hdmi_data_valid,
-            i_hdmi_pvalid = self.vin.valid,
+            i_hdmi_pvalid = 1,
             o_hdmi_line_done = hdmi_line_done,
             i_hdmi_line_ready = self.vin.hsync,
             i_rom_wb_ack = wb_rom.ack,
@@ -242,11 +242,6 @@ class BaseSoC(SoCCore):
                 pads         = platform.request_all("led_n"),
                 sys_clk_freq = sys_clk_freq
             )
-        else:
-            leds = platform.request_all("led_n")
-            self.comb += [leds[0].eq(self.nes.testo),
-                leds[1].eq(1),
-            ]
             
         if with_video_terminal:
             print("Adding hdmi output")
@@ -270,6 +265,11 @@ class BaseSoC(SoCCore):
             btn_pads = platform.request_all("btn")
             self.buttons = GPIOIn(pads=~btn_pads)
             self.comb += self.crg.rst.eq(btn_pads[0])
+            if not with_led_chaser:
+                leds = platform.request_all("led_n")
+                self.comb += [leds[0].eq(~self.nes.testo),
+                    leds[1].eq(btn_pads[0]),
+                ]
 
     def add_nes_video_terminal(self, nes, name="video_terminal", phy=None, timings="800x600@60Hz", clock_domain="sys"):
         from litex.soc.cores.video import VideoTimingGenerator, VideoTerminal
