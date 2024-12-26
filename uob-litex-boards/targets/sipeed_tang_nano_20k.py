@@ -248,8 +248,8 @@ class BaseSoC(SoCCore):
 
         self.nes = NesInst(self, platform, sys_clk_freq)
         tp = platform.request_all("test_io")
-        self.comb += [tp[0].eq(self.nes.testo[0]),
-            tp[1].eq(self.nes.testo[1])
+        self.comb += [tp[0].eq(self.nes.testo.0),
+            tp[1].eq(self.nes.testo.1)
         ]
 
 
