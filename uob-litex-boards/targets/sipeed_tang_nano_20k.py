@@ -232,7 +232,7 @@ class BaseSoC(SoCCore):
             )
         else:
             leds = platform.request_all("led_n")
-            self.comb += [leds[0].eq(nes.testo),
+            self.comb += [leds[0].eq(self.nes.testo),
                 leds[1].eq(1),
             ]
             
