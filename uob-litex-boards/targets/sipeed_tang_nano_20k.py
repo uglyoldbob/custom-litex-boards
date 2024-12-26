@@ -82,7 +82,7 @@ class _CRG(LiteXModule):
 class NesInst(LiteXModule):
     def __init__(self, core, platform, sys_clk_freq):
         nes = Nes(platform)
-        self.vin = Endpoint(video_data_layout)
+        self.vin = Endpoint(video_timing_layout)
         self.testo = Signal(2)
         nes_clk = ClockSignal("hdmi")
         hdmi_data = Signal(24)
