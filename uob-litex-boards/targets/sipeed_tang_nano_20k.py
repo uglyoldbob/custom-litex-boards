@@ -287,9 +287,7 @@ class BaseSoC(SoCCore):
             ]
             if not with_led_chaser:
                 leds = platform.request_all("led_n")
-                self.comb += [leds[0].eq(~self.nes.testo),
-                    leds[1].eq(btn_pads[0]),
-                ]
+                self.comb += leds[1].eq(btn_pads[0])
 
     def add_nes_video_terminal(self, nes, name="video_terminal", phy=None, timings="800x600@60Hz", clock_domain="sys"):
         from litex.soc.cores.video import VideoTimingGenerator, VideoTerminal
