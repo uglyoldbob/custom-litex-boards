@@ -97,7 +97,6 @@ class NesInst(LiteXModule):
             p_random_noise = 1,
             p_clockbuf = "ibuf",
             p_softcpu = 0,
-            p_random_noise = 1,
             i_ignore_sync = 1,
             i_clock = nes_clk,
             i_reset = 0,
