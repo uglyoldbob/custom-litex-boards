@@ -206,6 +206,7 @@ class BaseSoC(SoCCore):
         
         test_io = [
             ("test_io", 0, Subsignal("J5:3")),
+            ("test_io", 1, Subsignal("J5:4")),
         ]
         
         platform.add_extension(test_io)
@@ -245,7 +246,11 @@ class BaseSoC(SoCCore):
                 l2_cache_size = 128,
             )
 
-        self.nes = NesInst(self, platform, sys_clk_freq)       
+        self.nes = NesInst(self, platform, sys_clk_freq)
+        tp = platform.request_all("test_io")
+        self.comb += [tp[0].eq(self.nes.testo[0]),
+            tp[1].eq(self.nes.testo[1])
+        ]
 
 
         # Leds -------------------------------------------------------------------------------------
