@@ -131,7 +131,7 @@ class NesInst(LiteXModule):
         self.vid_select = CSRStorage(8)
         vidtest = PRBS31Generator(24)
         vidtest = ClockDomainsRenamer( {"sys" : "hdmi"} )(vidtest)
-        self.submodules += vidtest
+        self.submodules += [vidtest, self.vid_select]
         self.comb += Case(self.vid_select.storage, {
                 0: [self.vin.ready.eq(self.vout.ready),
                     self.vout.hsync.eq(self.vin.hsync),
