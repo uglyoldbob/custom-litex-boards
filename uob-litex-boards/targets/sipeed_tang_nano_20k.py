@@ -13,6 +13,7 @@ from migen.genlib.resetsync import AsyncResetSynchronizer
 from litex.gen import *
 
 from litex.build.io import DDROutput
+from litex.build.generic_platform import *
 
 from litex.soc.cores.clock.gowin_gw2a import GW2APLL, GW2ADIV
 from litex.soc.integration.soc_core import *
