@@ -203,6 +203,12 @@ class BaseSoC(SoCCore):
         platform.toolchain.options["vhdl_std"] = "vhd2008"
         platform.toolchain.options["top_module"] = "sipeed_tang_nano_20k"
         
+        test_io = [
+            ("test_io", 0, Subsignal("J5:3")),
+        ]
+        
+        platform.add_extension(test_io)
+        
         extra_reset = Signal()
 
         # CRG --------------------------------------------------------------------------------------
