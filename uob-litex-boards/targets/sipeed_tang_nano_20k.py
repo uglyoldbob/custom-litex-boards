@@ -97,6 +97,7 @@ class NesInst(LiteXModule):
             p_random_noise = 1,
             p_clockbuf = "ibuf",
             p_softcpu = 0,
+            i_random_noise = 1,
             i_ignore_sync = 1,
             i_clock = nes_clk,
             i_reset = 0,
@@ -296,30 +297,9 @@ class BaseSoC(SoCCore):
         vtg = ClockDomainsRenamer(clock_domain)(vtg)
         self.add_module(name=f"{name}_vtg", module=vtg)
 
-        # Video Terminal.
-        timings = timings if isinstance(timings, str) else timings[0]
-        vt = VideoTerminal(
-            hres = int(timings.split("@")[0].split("x")[0]),
-            vres = int(timings.split("@")[0].split("x")[1]),
-        )
-        vt = ClockDomainsRenamer(clock_domain)(vt)
-        self.add_module(name=name, module=vt)
-
-        # Connect Video Timing Generator to Video Terminal.
-        self.comb += vtg.source.connect(vt.vtg_sink)
-        
-        # Connect UART to Video Terminal.
-        uart_cdc = stream.ClockDomainCrossing([("data", 8)], cd_from="sys", cd_to=clock_domain)
-        self.add_module(name=f"{name}_uart_cdc", module=uart_cdc)
-        self.comb += [
-            uart_cdc.sink.valid.eq(self.uart.tx_fifo.source.valid & self.uart.tx_fifo.source.ready),
-            uart_cdc.sink.data.eq(self.uart.tx_fifo.source.data),
-            uart_cdc.source.connect(vt.uart_sink),
-        ]
-
         # Connect Video Terminal to Video PHY.
         #self.comb += vt.source.connect(phy if isinstance(phy, stream.Endpoint) else phy.sink)
-        self.comb += vt.source.connect(nes.vin)
+        self.comb += vtg.source.connect(nes.vin)
         self.comb += nes.vout.connect(phy if isinstance(phy, stream.Endpoint) else phy.sink)
 
 # Build --------------------------------------------------------------------------------------------
