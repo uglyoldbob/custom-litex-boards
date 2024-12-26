@@ -72,7 +72,7 @@ class _CRG(LiteXModule):
 
         self.pll2 = pll2 = GW2APLL(devicename=platform.devicename, device=platform.device)
         if reset is not None:
-            self.comb += pll2.reset.eq(~por_done or reset)
+            self.comb += pll2.reset.eq(~por_done | reset)
         else:
             self.comb += pll2.reset.eq(~por_done)
         pll2.register_clkin(self.inclock, 27e6)
