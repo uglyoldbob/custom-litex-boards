@@ -37,7 +37,7 @@ from nes import Nes
 # CRG ----------------------------------------------------------------------------------------------
 
 class _CRG(LiteXModule):
-    def __init__(self, platform, sys_clk_freq):
+    def __init__(self, platform, sys_clk_freq, reset=None):
         self.inclock = Signal()
         self.rst      = Signal()
         clki = Signal()
@@ -71,7 +71,10 @@ class _CRG(LiteXModule):
         self.comb += self.cd_hdmi.clk.eq(self.div5.clkout)
 
         self.pll2 = pll2 = GW2APLL(devicename=platform.devicename, device=platform.device)
-        self.comb += pll2.reset.eq(~por_done)
+        if reset is not None:
+            self.comb += pll2.reset.eq(~por_done or reset)
+        else:
+            self.comb += pll2.reset.eq(~por_done)
         pll2.register_clkin(self.inclock, 27e6)
         pll2.create_clkout(self.cd_sys, sys_clk_freq)
         self.comb += self.cd_nes.clk.eq(self.cd_sys.clk)
@@ -199,9 +202,11 @@ class BaseSoC(SoCCore):
         platform = sipeed_tang_nano_20k.Platform(toolchain=toolchain)
         platform.toolchain.options["vhdl_std"] = "vhd2008"
         platform.toolchain.options["top_module"] = "sipeed_tang_nano_20k"
+        
+        extra_reset = Signal()
 
         # CRG --------------------------------------------------------------------------------------
-        self.crg = _CRG(platform, sys_clk_freq)
+        self.crg = _CRG(platform, sys_clk_freq, reset=extra_reset)
 
         # SoCCore ----------------------------------------------------------------------------------
         SoCCore.__init__(self, platform, sys_clk_freq, ident="LiteX SoC on Tang Nano 20K", **kwargs)
@@ -264,7 +269,10 @@ class BaseSoC(SoCCore):
         if with_buttons:
             btn_pads = platform.request_all("btn")
             self.buttons = GPIOIn(pads=~btn_pads)
-            self.comb += self.crg.rst.eq(btn_pads[0])
+            self.comb += [
+                extra_reset.eq(btn_pads[0]),
+                self.crg.rst.eq(btn_pads[0])
+            ]
             if not with_led_chaser:
                 leds = platform.request_all("led_n")
                 self.comb += [leds[0].eq(~self.nes.testo),
