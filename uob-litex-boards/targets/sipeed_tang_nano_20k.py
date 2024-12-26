@@ -93,10 +93,11 @@ class NesInst(LiteXModule):
         hdmi_line_ready = Signal()
         cpu_oe = Signal(2)
         self.wb_rom = wb_rom = wishbone.Interface(data_width=16, address_width=21, addressing="word")
+        nes_reset = ResetSignal("hdmi")
         self.specials += Instance("Nes",
             p_clockbuf = "none",
             i_clock = nes_clk,
-            i_reset = 0,
+            i_reset = nes_reset,
             o_testo = self.testo,
             o_hdmi_pixel_out = hdmi_data,
             i_hdmi_vsync = self.vin.vsync,
