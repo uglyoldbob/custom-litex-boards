@@ -9,7 +9,7 @@ with open("README.md", "r", encoding="utf-8") as fp:
 
 
 setup(
-    name                          = "custom-litex-boards",
+    name                          = "uob-litex-boards",
     version                       = "2024.08",
     description                   = "UOB LiteX supported boards",
     long_description              = long_description,
