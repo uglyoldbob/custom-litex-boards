@@ -21,7 +21,7 @@ from litex.soc.integration.soc import SoCRegion
 from litex.soc.integration.builder import *
 from litex.soc.interconnect import wishbone
 from litex.soc.interconnect.csr import CSRStorage
-from litex.soc.interconnect.stream import Endpoint, AsyncFIFO
+from litex.soc.interconnect.stream import Endpoint, SyncFIFO
 from litex.soc.cores.gpio import GPIOIn
 from litex.soc.cores.led import LedChaser, WS2812
 from litex.soc.cores.prbs import PRBS31Generator
@@ -84,7 +84,7 @@ class NesInst(LiteXModule):
         nes = Nes(platform)
         self.vin = Endpoint(video_data_layout)
         self.testo = Signal()
-        sys_clk = ClockSignal("sys")
+        nes_clk = ClockSignal("hdmi")
         hdmi_data = Signal(24)
         hdmi_row = Signal(11)
         hdmi_column = Signal(12)
@@ -98,7 +98,7 @@ class NesInst(LiteXModule):
             p_clockbuf = "ibuf",
             p_softcpu = 0,
             i_ignore_sync = 1,
-            i_clock = sys_clk,
+            i_clock = nes_clk,
             i_reset = 0,
             o_testo = self.testo,
             o_hdmi_pixel_out = hdmi_data,
@@ -127,12 +127,12 @@ class NesInst(LiteXModule):
                 ("g", 8),
                 ("b", 8)
         ]
-        fifo = AsyncFIFO(rgb_layout, 2048)
+        fifo = SyncFIFO(rgb_layout, 2048)
         self.vout = Endpoint(video_data_layout)
         self.vid_select = CSRStorage(8)
         vidtest = PRBS31Generator(24)
         vidtest = ClockDomainsRenamer( {"sys" : "hdmi"} )(vidtest)
-        self.fifo = ClockDomainsRenamer( {"write": "nes", "read": "hdmi"} )(fifo)
+        self.fifo = ClockDomainsRenamer( {"sys": "hdmi"} )(fifo)
         print(self.fifo.__dict__.keys())
         for att in dir(self.fifo):
             t = getattr(self.fifo,att)
