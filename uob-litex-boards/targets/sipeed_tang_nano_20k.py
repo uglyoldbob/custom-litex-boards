@@ -145,7 +145,7 @@ class NesInst(LiteXModule):
                     self.vout.hsync.eq(self.vin.hsync),
                     self.vout.vsync.eq(self.vin.vsync),
                     self.vout.de.eq(self.vin.de),
-                    self.fifo.sink.valid.eq(hdmi_data_valid),
+                    self.fifo.sink.we.eq(hdmi_data_valid),
                     self.fifo.source.ready.eq(self.vout.ready),
                     self.vout.r.eq(self.fifo.source.r), 
                     self.vout.g.eq(self.fifo.source.g), 
