@@ -20,7 +20,7 @@ from litex.soc.integration.soc import SoCRegion
 from litex.soc.integration.builder import *
 from litex.soc.interconnect import wishbone
 from litex.soc.interconnect.csr import CSRStorage
-from litex.soc.interconnect.stream import Endpoint, SyncFIFO
+from litex.soc.interconnect.stream import Endpoint, AsyncFIFO
 from litex.soc.cores.gpio import GPIOIn
 from litex.soc.cores.led import LedChaser, WS2812
 from litex.soc.cores.prbs import PRBS31Generator
@@ -126,12 +126,13 @@ class NesInst(LiteXModule):
                 ("g", 8),
                 ("b", 8)
         ]
-        self.fifo = SyncFIFO(rgb_layout, 2048)
+        fifo = AsyncFIFO(rgb_layout, 2048)
         self.vout = Endpoint(video_data_layout)
         self.vid_select = CSRStorage(8)
         vidtest = PRBS31Generator(24)
         vidtest = ClockDomainsRenamer( {"sys" : "hdmi"} )(vidtest)
-        self.submodules += [vidtest, self.vid_select]
+        self.fifo = ClockDomainsRenamer( {"write": "nes", "read": "hdmi"} )(fifo)
+        self.submodules += [vidtest, self.vid_select, self.fifo]
         self.comb += Case(self.vid_select.storage, {
                 0: [self.vin.ready.eq(self.vout.ready),
                     self.vout.hsync.eq(self.vin.hsync),
