@@ -205,8 +205,8 @@ class BaseSoC(SoCCore):
         platform.toolchain.options["top_module"] = "sipeed_tang_nano_20k"
         
         test_io = [
-            ("test_io", 0, Pins("J5:3")),
-            ("test_io", 1, Pins("J5:4")),
+            ("test_io", 0, Pins("J5:3"), IOStandard("LVCMOS33")),
+            ("test_io", 1, Pins("J5:4"), IOStandard("LVCMOS33")),
         ]
         
         platform.add_extension(test_io)
