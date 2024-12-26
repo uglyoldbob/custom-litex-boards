@@ -47,7 +47,6 @@ class _CRG(LiteXModule):
         self.cd_por   = ClockDomain()
         self.cd_hdmi  = ClockDomain()
         self.cd_hdmi5x  = ClockDomain()
-        self.cd_nes = ClockDomain()
 
         # Clk
         clk27 = platform.request("clk27")
@@ -78,7 +77,6 @@ class _CRG(LiteXModule):
             self.comb += pll2.reset.eq(~por_done)
         pll2.register_clkin(self.inclock, 27e6)
         pll2.create_clkout(self.cd_sys, sys_clk_freq)
-        self.comb += self.cd_nes.clk.eq(self.cd_sys.clk)
 
 
 class NesInst(LiteXModule):
@@ -87,7 +85,6 @@ class NesInst(LiteXModule):
         self.vin = Endpoint(video_data_layout)
         self.testo = Signal()
         sys_clk = ClockSignal("sys")
-        nes_clk = ClockSignal("nes")
         hdmi_data = Signal(24)
         hdmi_row = Signal(11)
         hdmi_column = Signal(12)
@@ -101,7 +98,7 @@ class NesInst(LiteXModule):
             p_clockbuf = "ibuf",
             p_softcpu = 0,
             i_ignore_sync = 1,
-            i_clock = nes_clk,
+            i_clock = sys_clk,
             i_reset = 0,
             o_testo = self.testo,
             o_hdmi_pixel_out = hdmi_data,
