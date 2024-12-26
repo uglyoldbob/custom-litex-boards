@@ -132,6 +132,7 @@ class NesInst(LiteXModule):
         vidtest = PRBS31Generator(24)
         vidtest = ClockDomainsRenamer( {"sys" : "hdmi"} )(vidtest)
         self.fifo = ClockDomainsRenamer( {"write": "nes", "read": "hdmi"} )(fifo)
+        print(self.fifo.__dict__.keys())
         self.submodules += [vidtest, self.vid_select, self.fifo]
         self.comb += Case(self.vid_select.storage, {
                 0: [self.vin.ready.eq(self.vout.ready),
