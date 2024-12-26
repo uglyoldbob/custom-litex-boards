@@ -94,9 +94,7 @@ class NesInst(LiteXModule):
         cpu_oe = Signal(2)
         self.wb_rom = wb_rom = wishbone.Interface(data_width=16, address_width=21, addressing="word")
         self.specials += Instance("Nes",
-            p_random_noise = 1,
-            p_clockbuf = "ibuf",
-            p_softcpu = 0,
+            p_clockbuf = "none",
             i_ignore_sync = 1,
             i_clock = nes_clk,
             i_reset = 0,
