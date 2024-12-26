@@ -125,7 +125,8 @@ class NesInst(LiteXModule):
         self.fifo = SyncFIFO(rgb_layout, 2048)
         self.vout = Endpoint(video_data_layout)
         self.vid_select = CSRStorage(8)
-        self.vid_test = PRBS31Generator(24)
+        self.vidtest = PRBS31Generator(24)
+        self.specials += self.vidtest
         self.comb += Case(self.vid_select.storage, {
                 0: [self.vin.ready.eq(self.vout.ready),
                     self.vout.hsync.eq(self.vin.hsync),
@@ -147,9 +148,9 @@ class NesInst(LiteXModule):
                     self.vout.hsync.eq(self.vin.hsync),
                     self.vout.vsync.eq(self.vin.vsync),
                     self.vout.de.eq(self.vin.de),
-                    self.vout.r.eq(self.vid_test.o[0:7]), 
-                    self.vout.g.eq(self.vid_test.o[8:15]), 
-                    self.vout.b.eq(self.vid_test.o[16:23])],
+                    self.vout.r.eq(self.vidtest.o[0:7]), 
+                    self.vout.g.eq(self.vidtest.o[8:15]), 
+                    self.vout.b.eq(self.vidtest.o[16:23])],
                 "default": [self.vin.ready.eq(self.vout.ready),
                     self.vout.hsync.eq(self.vin.hsync),
                     self.vout.vsync.eq(self.vin.vsync),
