@@ -69,6 +69,7 @@ class _CRG(LiteXModule):
         pll.create_clkout(self.cd_hdmi5x, 371.25e6)
         self.div5 = GW2ADIV(self.cd_hdmi5x.clk, "5")
         self.comb += self.cd_hdmi.clk.eq(self.div5.clkout)
+        self.comb += self.cd_hdmi.rst.eq(self.rst)
 
         self.pll2 = pll2 = GW2APLL(devicename=platform.devicename, device=platform.device)
         if reset is not None:
