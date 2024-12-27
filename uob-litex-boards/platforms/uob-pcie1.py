@@ -1,3 +1,4 @@
+# Template from litex-boards crosslink nx vip board
 #
 # This file is part of LiteX-Boards.
 #
