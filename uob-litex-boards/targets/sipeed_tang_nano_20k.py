@@ -8,6 +8,7 @@
 # SPDX-License-Identifier: BSD-2-Clause
 
 from migen import *
+from migen.fhdl.specials import Tristate
 from migen.genlib.resetsync import AsyncResetSynchronizer
 
 from litex.gen import *
@@ -34,6 +35,7 @@ from litedram.phy import GENSDRPHY
 from litex_boards.platforms import sipeed_tang_nano_20k
 
 from nes import Nes
+from opencores_sdcard import SdCard
 
 # CRG ----------------------------------------------------------------------------------------------
 
@@ -70,33 +72,57 @@ class _CRG(LiteXModule):
         self.div5 = GW2ADIV(self.cd_hdmi5x.clk, "5")
         self.comb += self.cd_hdmi.clk.eq(self.div5.clkout)
         self.comb += self.cd_hdmi.rst.eq(self.rst)
-
-        self.pll2 = pll2 = GW2APLL(devicename=platform.devicename, device=platform.device)
-        if reset is not None:
-            self.comb += pll2.reset.eq(~por_done | reset)
+        
+        if sys_clk_freq == 37125000:
+            self.div2 = GW2ADIV(self.div5.clkout, "2")
+            self.comb += self.cd_sys.clk.eq(self.div2.clkout)
         else:
-            self.comb += pll2.reset.eq(~por_done)
-        pll2.register_clkin(self.inclock, 27e6)
-        pll2.create_clkout(self.cd_sys, sys_clk_freq)
+            self.pll2 = pll2 = GW2APLL(devicename=platform.devicename, device=platform.device)
+            if reset is not None:
+                self.comb += pll2.reset.eq(~por_done | reset)
+            else:
+                self.comb += pll2.reset.eq(~por_done)
+            pll2.register_clkin(self.inclock, 27e6)
+            pll2.create_clkout(self.cd_sys, sys_clk_freq)
 
 
 class NesInst(LiteXModule):
     def __init__(self, core, platform, sys_clk_freq):
         nes = Nes(platform)
         self.vin = Endpoint(video_timing_layout)
+        self.vout = Endpoint(video_data_layout)
         self.testo = Signal(2)
         nes_clk = ClockSignal("hdmi")
+        nes_box_valid1 = Signal()
+        nes_box_valid2 = Signal()
+        nes_picture_box_valid = Signal()
+        video_fifo_read = Signal()
+        self.comb += [
+            If((self.vin.hcount > 255) & (self.vin.hcount < 1024), nes_box_valid1.eq(1)),
+            If(self.vin.vcount < self.vin.vres, nes_box_valid2.eq(1)),
+            nes_picture_box_valid.eq(nes_box_valid1 & nes_box_valid2),
+            video_fifo_read.eq(self.vout.ready & nes_picture_box_valid),
+        ]
         hdmi_data = Signal(24)
         hdmi_row = Signal(11)
         hdmi_column = Signal(12)
         hdmi_data_valid = Signal()
         hdmi_line_done = Signal()
         hdmi_line_ready = Signal()
+        self.comb += [
+                If(self.vin.vcount < 720, hdmi_line_ready.eq(self.vin.hsync)),
+        ]
         cpu_oe = Signal(2)
         self.wb_rom = wb_rom = wishbone.Interface(data_width=16, address_width=21, addressing="word")
         nes_reset = ResetSignal("hdmi")
         self.specials += Instance("Nes",
             p_clockbuf = "none",
+            p_FREQ = 74250000,
+            p_sim = 0,
+            p_softcpu = 0,
+            p_ramtype = "wishbone",
+            p_rambits = 3,
+            p_random_noise = 1,
             i_clock = nes_clk,
             i_reset = nes_reset,
             o_testo = self.testo,
@@ -105,7 +131,7 @@ class NesInst(LiteXModule):
             o_hdmi_valid_out = hdmi_data_valid,
             i_hdmi_pvalid = 1,
             o_hdmi_line_done = hdmi_line_done,
-            i_hdmi_line_ready = self.vin.hsync,
+            i_hdmi_line_ready = hdmi_line_ready,
             i_rom_wb_ack = wb_rom.ack,
             i_rom_wb_d_miso = wb_rom.dat_r,
             o_rom_wb_d_mosi = wb_rom.dat_w,
@@ -127,7 +153,6 @@ class NesInst(LiteXModule):
                 ("b", 8)
         ]
         fifo = SyncFIFO(rgb_layout, 2048)
-        self.vout = Endpoint(video_data_layout)
         self.vid_select = CSRStorage(8)
         vidtest = PRBS31Generator(24)
         vidtest = ClockDomainsRenamer( {"sys" : "hdmi"} )(vidtest)
@@ -141,12 +166,12 @@ class NesInst(LiteXModule):
                     self.fifo.sink.r.eq(hdmi_data[0:8]),
                     self.fifo.sink.g.eq(hdmi_data[8:16]),
                     self.fifo.sink.b.eq(hdmi_data[16:24]),
-                    self.fifo.source.ready.eq(self.vout.ready),
+                    self.fifo.source.ready.eq(video_fifo_read),
                     self.fifo.sink.valid.eq(hdmi_data_valid),
                     self.vout.valid.eq(self.fifo.source.valid),
-                    self.vout.r.eq(self.fifo.source.r), 
-                    self.vout.g.eq(self.fifo.source.g), 
-                    self.vout.b.eq(self.fifo.source.b)],
+                    If(nes_picture_box_valid, [self.vout.r.eq(self.fifo.source.r), 
+                        self.vout.g.eq(self.fifo.source.g), 
+                        self.vout.b.eq(self.fifo.source.b)]),],
                 1: [self.vin.ready.eq(self.vout.ready),
                     self.vout.hsync.eq(self.vin.hsync),
                     self.vout.vsync.eq(self.vin.vsync),
@@ -192,14 +217,16 @@ class NesInst(LiteXModule):
         })
 
 # BaseSoC ------------------------------------------------------------------------------------------
-
 class BaseSoC(SoCCore):
+    
+
     def __init__(self, toolchain="gowin", sys_clk_freq=48e6,
         with_led_chaser = False,
         with_rgb_led    = False,
         with_buttons    = True,
         with_video_terminal = False,
         with_framebuffer = False,
+        with_wb_sdcard = False,
         **kwargs):
 
         platform = sipeed_tang_nano_20k.Platform(toolchain=toolchain)
@@ -208,7 +235,7 @@ class BaseSoC(SoCCore):
         
         test_io = [
             ("test_io", 0, Pins("J5:3"), IOStandard("LVCMOS33")),
-            ("test_io", 1, Pins("J5:4"), IOStandard("LVCMOS33")),
+            ("test_io", 1, Pins("J5:5"), IOStandard("LVCMOS33")),
         ]
         
         platform.add_extension(test_io)
@@ -249,6 +276,7 @@ class BaseSoC(SoCCore):
             )
 
         self.nes = NesInst(self, platform, sys_clk_freq)
+        self.bus.add_master(master=self.nes.wb_rom, region=SoCRegion(origin=0x40000000, size=0x00800000))
         tp = platform.request_all("test_io")
         self.comb += [tp.eq(self.nes.testo),
         ]
@@ -270,12 +298,51 @@ class BaseSoC(SoCCore):
         if with_rgb_led:
             self.rgb_led = WS2812(
                 pad          = platform.request("rgb_led"),
-                nleds        = 1,
+                nleds        = 2,
                 sys_clk_freq = sys_clk_freq
             )
             self.bus.add_slave(name="rgb_led", slave=self.rgb_led.bus, region=SoCRegion(
                 origin = 0x2000_0000,
                 size   = 4,
+            ))
+
+        if with_wb_sdcard:
+            sdthing = SdCard(platform)
+            pads = platform.request("sdcard")
+            wb = wishbone.Interface(data_width=32, address_width=8, addressing="word")
+            sd_cmd_o = Signal()
+            sd_cmd_i = Signal()
+            sd_cmd_oe = Signal()
+            self.specials += Tristate(pads.cmd, sd_cmd_o, sd_cmd_oe, i=sd_cmd_i)
+            sd_dat_o = Signal(4)
+            sd_dat_i = Signal(4)
+            sd_dat_oe = Signal()
+            sys_clk = ClockSignal("sys")
+            self.specials += Tristate(pads.data, sd_dat_o, sd_dat_oe, i=sd_dat_i)
+            sd_wb_slave = Instance("sdc_controller",
+                i_wb_clk_i = sys_clk,
+                i_wb_rst_i = ResetSignal("sys"),
+                i_wb_dat_i = wb.dat_w,
+                o_wb_dat_o = wb.dat_r,
+                i_wb_adr_i = wb.adr[0:8],
+                i_wb_sel_i = wb.sel,
+                i_wb_we_i = wb.we,
+                i_wb_cyc_i = wb.cyc,
+                i_wb_stb_i = wb.stb,
+                o_wb_ack_o = wb.ack,
+                i_sd_cmd_dat_i = sd_cmd_i,
+                o_sd_cmd_out_o = sd_cmd_o,
+                o_sd_cmd_oe_o = sd_cmd_oe,
+                i_sd_dat_dat_i = sd_dat_i,
+                o_sd_dat_out_o = sd_dat_o,
+                o_sd_dat_oe_o = sd_dat_oe,
+                o_sd_clk_o_pad = pads.clk,
+                i_sd_clk_i_pad = sys_clk,
+                )
+            self.specials += sd_wb_slave
+            self.bus.add_slave(name="sdcard", slave=wb, region=SoCRegion(
+                origin = 0x3000_0000,
+                size   = 1024,
             ))
 
         # Buttons ----------------------------------------------------------------------------------
@@ -310,9 +377,10 @@ def main():
     from litex.build.parser import LiteXArgumentParser
     parser = LiteXArgumentParser(platform=sipeed_tang_nano_20k.Platform, description="LiteX SoC on Tang Nano 20K.")
     parser.add_target_argument("--flash",        action="store_true",      help="Flash Bitstream.")
-    parser.add_target_argument("--sys-clk-freq", default=27e6, type=float, help="System clock frequency.")
+    parser.add_target_argument("--sys-clk-freq", default=37.125e6, type=float, help="System clock frequency.")
     parser.add_target_argument("--with-video-terminal", action="store_true",    help="Enable Video Terminal (HDMI).")
     parser.add_target_argument("--with-rgb-led", action="store_true",    help="Enable RGB led.")
+    parser.add_target_argument("--with-wb-sdcard", action="store_true", help="Enable SDCard support with a wishbone slave.")
     sdopts = parser.target_group.add_mutually_exclusive_group()
     sdopts.add_argument("--with-spi-sdcard",            action="store_true", help="Enable SPI-mode SDCard support.")
     sdopts.add_argument("--with-sdcard",                action="store_true", help="Enable SDCard support.")
@@ -322,8 +390,11 @@ def main():
         toolchain    = args.toolchain,
         sys_clk_freq = args.sys_clk_freq,
         with_video_terminal = args.with_video_terminal,
+        with_rgb_led = args.with_rgb_led,
+        with_wb_sdcard = args.with_wb_sdcard,
         **parser.soc_argdict
     )
+    
     if args.with_spi_sdcard:
         soc.add_spi_sdcard()
     if args.with_sdcard:
