@@ -207,7 +207,7 @@ class Platform(LatticeNexusPlatform):
 
     def __init__(self, device="LIFCL", toolchain="radiant", **kwargs):
         assert device in ["LIFCL"]
-        LatticeNexusPlatform.__init__(self, device + "-40-9BG400C", _io, _connectors, toolchain=toolchain, **kwargs)
+        LatticeNexusPlatform.__init__(self, device + "-40-7MG289C", _io, _connectors, toolchain=toolchain, **kwargs)
 
     def create_programmer(self, mode = "direct"):
         assert mode in ["direct","flash"]

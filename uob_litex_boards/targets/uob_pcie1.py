@@ -15,7 +15,7 @@ from migen.genlib.resetsync import AsyncResetSynchronizer
 
 from litex.gen import *
 
-from litex_boards.platforms import lattice_crosslink_nx_vip
+from uob_litex_boards.platforms import uob_pcie1
 
 from litex.soc.cores.hyperbus import HyperRAM
 
@@ -65,7 +65,7 @@ class BaseSoC(SoCCore):
         hyperram        = "none",
         with_led_chaser = True,
         **kwargs):
-        platform = lattice_crosslink_nx_vip.Platform(toolchain=toolchain)
+        platform = uob_pcie1.Platform(toolchain=toolchain)
         platform.add_platform_command("ldc_set_sysconfig {{MASTER_SPI_PORT=SERIAL}}")
 
         # CRG --------------------------------------------------------------------------------------
@@ -100,7 +100,7 @@ class BaseSoC(SoCCore):
 
 def main():
     from litex.build.parser import LiteXArgumentParser
-    parser = LiteXArgumentParser(platform=lattice_crosslink_nx_vip.Platform, description="LiteX SoC on Crosslink-NX VIP Board.")
+    parser = LiteXArgumentParser(platform=uob_pcie1.Platform, description="LiteX SoC on Crosslink-NX VIP Board.")
     parser.add_target_argument("--sys-clk-freq",  default=75e6, type=float, help="System clock frequency.")
     parser.add_target_argument("--with-hyperram", default="none",           help="Enable use of HyperRAM chip (none, 0 or 1).")
     parser.add_target_argument("--prog-target",   default="direct",         help="Programming Target (direct or flash).")
