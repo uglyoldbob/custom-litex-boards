@@ -14,103 +14,36 @@ from litex.build.lattice.programmer import LatticeProgrammer
 # IOs ----------------------------------------------------------------------------------------------
 
 _io = [
-    ("clk12", 0, Pins("L16"), IOStandard("LVCMOS33")), # Ensure JP2 is installed
-
-    # Reference clocks. Why are there four 27MHz oscs. Is this really correct??
-    ("clk27_0", 0, Pins("L5"), IOStandard("LVCMOS18")),
-    ("clk27_1", 0, Pins("L7"), IOStandard("LVCMOS18")),
-    ("clk27_2", 0, Pins("M2"), IOStandard("LVCMOS18")),
-    ("clk27_3", 0, Pins("Y2"), IOStandard("LVCMOS18")),
-
-    # 8.1. General Purpose Push Buttons - all logic zero when pressed]
-    ("cam_reset", 0, Pins("T1"), IOStandard("LVCMOS18H"), Misc("PULLMODE=UP")),  # SW1
-    ("gsrn",      0, Pins("G13"), IOStandard("LVCMOS33")),  # SW3
-    ("programn",  0, Pins("E11"), IOStandard("LVCMOS33")),  # SW4
-    ("user_btn",  0, Pins("L20"), IOStandard("LVCMOS33")),  # SW5
-    ("user_btn",  1, Pins("L19"), IOStandard("LVCMOS33")),  # SW6
-
+    ("clock", 0, Pins("C14"), IOStandard("LVCMOS33")),
+    ("gsrn", 0, Pins("C13"), IOStandard("LVCMOS33")),
     ("serial", 0,
-        Subsignal("rx", Pins("F14"), IOStandard("LVCMOS33")),
-        Subsignal("tx", Pins("F16"), IOStandard("LVCMOS33")),
+        Subsignal("rx", Pins("A16"), IOStandard("LVCMOS33")),
+        Subsignal("tx", Pins("B16"), IOStandard("LVCMOS33")),
     ),
-
-    # Section 7.1 Status LEDs
-    ("user_led", 0, Pins("G14"), IOStandard("LVCMOS33")),  # Green
-    ("user_led", 1, Pins("G15"), IOStandard("LVCMOS33")),  # Green
-    ("user_led", 2, Pins("L13"), IOStandard("LVCMOS33")),  # Green
-    ("user_led", 3, Pins("L14"), IOStandard("LVCMOS33")),  # Green
-
-
-    # Section 8.1 DIP Switch
-    ("user_dip_btn", 0, Pins("R5"), IOStandard("LVCMOS18")),
-    ("user_dip_btn", 1, Pins("R6"), IOStandard("LVCMOS18")),
-    ("user_dip_btn", 2, Pins("Y5"), IOStandard("LVCMOS18")),
-    ("user_dip_btn", 3, Pins("W5"), IOStandard("LVCMOS18")),
-
-    # SPI Flash
-    ("spiflash", 0,
-        Subsignal("cs_n", Pins("E13")),
-        Subsignal("clk",  Pins("E12")),
-        Subsignal("mosi", Pins("D13")),
-        Subsignal("miso", Pins("D15")),
-        Subsignal("wp",   Pins("D14")),
-        Subsignal("hold", Pins("D16")),
-        IOStandard("LVCMOS33")
-    ),
-
-    ("spiflash4x", 0,
-        Subsignal("cs_n", Pins("E13")),
-        Subsignal("clk",  Pins("E12")),
-        Subsignal("dq",   Pins("D13 D15 D14 D16")),
-        IOStandard("LVCMOS33")
-    ),
-
-    # Camera I2C buses
-    ("i2c", 0,
-        Subsignal("sda", Pins("N4")),
-        Subsignal("scl", Pins("N5")),
-        IOStandard("LVCMOS18")
-    ),
-    ("i2c", 1,
-        Subsignal("sda", Pins("N6")),
-        Subsignal("scl", Pins("N7")),
-        IOStandard("LVCMOS18")
-    ),
-    ("i2c", 2,
-        Subsignal("sda", Pins("P1")),
-        Subsignal("scl", Pins("P2")),
-        IOStandard("LVCMOS18")
-    ),
-    ("i2c", 3,
-        Subsignal("sda", Pins("P5")),
-        Subsignal("scl", Pins("P6")),
-        IOStandard("LVCMOS18")
-    ),
-
-    # Shared camera control signals
-    ("cam_ctrl",
-        Subsignal("cam_reset", Pins("T1")),
-        Subsignal("cam_frame_sync", Pins("U1")),
-    ),
-
-    # HyperRAM
-    ("hyperram", 0,
-        Subsignal("dq", Pins("Y6 W7 V7 P7 P8 R8 T8 Y7"), IOStandard("LVCMOS18H")),
-        Subsignal("rwds", Pins("W6"), IOStandard("LVCMOS18H")),
-        Subsignal("cs_n", Pins("V6"), IOStandard("LVCMOS18H")),
-        Subsignal("rst_n", Pins("U7"), IOStandard("LVCMOS18H")),
-        Subsignal("clk", Pins("R7"), IOStandard("LVDS")),
-        # Subsignal("clk_n", Pins("T7"), IOStandard("LVDS")),
-        Misc("SLEWRATE=FAST")
-    ),
-    ("hyperram", 1,
-        Subsignal("dq", Pins("W8 V9 W9 Y9 T10 T11 U10 V10"), IOStandard("LVCMOS18H")),
-        Subsignal("rwds", Pins("R10"), IOStandard("LVCMOS18H")),
-        Subsignal("cs_n", Pins("P9"), IOStandard("LVCMOS18H")),
-        Subsignal("rst_n", Pins("P10"), IOStandard("LVCMOS18H")),
-        Subsignal("clk", Pins("W10"), IOStandard("LVDS")),
-        # Subsignal("clk_n", Pins("Y10"), IOStandard("LVDS")),
-        Misc("SLEWRATE=FAST")
+    
+    ("user_led", 0, Pins("B16"), IOStandard("LVCMOS33")),
+    ("user_led", 1, Pins("D13"), IOStandard("LVCMOS33")),
+    ("user_led", 2, Pins("D14"), IOStandard("LVCMOS33")),
+    
+    ("pcie", 0,
+        Subsignal("rx_p", Pins("A13"), IOStandard("LVCMOS33")),
+        Subsignal("rx_n", Pins("A14"), IOStandard("LVCMOS33")),
+        Subsignal("tx_p", Pins("A11"), IOStandard("LVCMOS33")),
+        Subsignal("tx_n", Pins("A10"), IOStandard("LVCMOS33")),
+        Subsignal("refclk_p", Pins("A8"), IOStandard("LVCMOS33")),
+        Subsignal("refclk_n", Pins("B8"), IOStandard("LVCMOS33")),
+        Subsignal("wake_n", Pins("D12"), IOStandard("LVCMOS33")),
+        Subsignal("perst_n", Pins("D16"), IOStandard("LVCMOS33")),
+        Subsignal("tck", Pins("F12"), IOStandard("LVCMOS33")),
+        Subsignal("tdi", Pins("E12"), IOStandard("LVCMOS33")),
+        Subsignal("tdo", Pins("E11"), IOStandard("LVCMOS33")),
+        Subsignal("tms", Pins("E13"), IOStandard("LVCMOS33")),
+        Subsignal("present_n", Pins("B17"), IOStandard("LVCMOS33")),
+        Subsignal("smbus_clk", Pins("C16"), IOStandard("LVCMOS33")),
+        Subsignal("smbus_data", Pins("C17"), IOStandard("LVCMOS33")),
+        Subsignal("rext", Pins("C12"), IOStandard("LVCMOS33")),
+        Subsignal("refret", Pins("B12"), IOStandard("LVCMOS33")),
+        Subsignal("aux_power", Pins("C13"), IOStandard("LVCMOS33")),
     ),
 
     ("camera_mclk", 0, Pins("M3"), IOStandard("LVCMOS18")),

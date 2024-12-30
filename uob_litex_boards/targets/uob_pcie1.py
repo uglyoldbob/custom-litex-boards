@@ -93,7 +93,7 @@ class BaseSoC(SoCCore):
         # Leds -------------------------------------------------------------------------------------
         if with_led_chaser:
             self.leds = LedChaser(
-                pads         = Cat(*[platform.request("user_led", i) for i in range(4)]),
+                pads         = Cat(*[platform.request("user_led", i) for i in range(3)]),
                 sys_clk_freq = sys_clk_freq)
 
 # Build --------------------------------------------------------------------------------------------
