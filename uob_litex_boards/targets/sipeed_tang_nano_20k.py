@@ -22,6 +22,7 @@ from litex.soc.integration.soc import SoCRegion
 from litex.soc.integration.builder import *
 from litex.soc.interconnect import wishbone
 from litex.soc.interconnect.csr import CSRStorage
+from litex.soc.interconnect.csr_eventmanager import EventManager, EventSourcePulse
 from litex.soc.interconnect.stream import Endpoint, SyncFIFO
 from litex.soc.cores.gpio import GPIOIn
 from litex.soc.cores.led import LedChaser, WS2812
@@ -85,6 +86,69 @@ class _CRG(LiteXModule):
             pll2.register_clkin(self.inclock, 27e6)
             pll2.create_clkout(self.cd_sys, sys_clk_freq)
 
+class WbSdcard(LiteXModule):
+    def __init__(self, core, platform, sys_clk_freq):
+        self.submodules.ev = EventManager()
+        self.ev.int_data = EventSourcePulse()
+        self.ev.int_cmd = EventSourcePulse()
+        self.ev.finalize()
+        sdthing = SdCard(platform)
+        pads = platform.request("sdcard")
+        wb = wishbone.Interface(data_width=32, address_width=11, addressing="word")
+        wbm = wishbone.Interface(data_width=32, address_width=29, addressing="word")
+        sd_cmd_o = Signal()
+        sd_cmd_i = Signal()
+        sd_cmd_oe = Signal()
+        self.specials += Tristate(pads.cmd, sd_cmd_o, sd_cmd_oe, i=sd_cmd_i)
+        sd_dat_o = Signal(4)
+        sd_dat_i = Signal(4)
+        sd_dat_oe = Signal()
+        sys_clk = ClockSignal("sys")
+        idata = Signal()
+        icmd = Signal()
+        self.specials += Tristate(pads.data, sd_dat_o, sd_dat_oe, i=sd_dat_i)
+        sd_wb_slave = Instance("sdc_controller",
+            i_wb_clk_i = sys_clk,
+            i_wb_rst_i = ResetSignal("sys"),
+            i_wb_dat_i = wb.dat_w,
+            o_wb_dat_o = wb.dat_r,
+            i_wb_adr_i = wb.adr[0:8],
+            i_wb_sel_i = wb.sel,
+            i_wb_we_i = wb.we,
+            i_wb_cyc_i = wb.cyc,
+            i_wb_stb_i = wb.stb,
+            o_wb_ack_o = wb.ack,
+            o_m_wb_adr_o = wbm.adr,
+            o_m_wb_sel_o = wbm.sel,
+            o_m_wb_we_o = wbm.we,
+            o_m_wb_dat_o = wbm.dat_w,
+            i_m_wb_dat_i = wbm.dat_r,
+            o_m_wb_cyc_o = wbm.cyc,
+            o_m_wb_stb_o = wbm.stb,
+            i_m_wb_ack_i = wbm.ack,
+            o_m_wb_cti_o = wbm.cti,
+            o_m_wb_bte_o = wbm.bte,
+            i_sd_cmd_dat_i = sd_cmd_i,
+            o_sd_cmd_out_o = sd_cmd_o,
+            o_sd_cmd_oe_o = sd_cmd_oe,
+            i_sd_dat_dat_i = sd_dat_i,
+            o_sd_dat_out_o = sd_dat_o,
+            o_sd_dat_oe_o = sd_dat_oe,
+            o_sd_clk_o_pad = pads.clk,
+            i_sd_clk_i_pad = sys_clk,
+            o_int_cmd = icmd,
+            o_int_data = idata,
+            )
+        self.comb += [
+            self.ev.int_data.trigger.eq(idata),
+            self.ev.int_cmd.trigger.eq(icmd),
+        ]
+        self.specials += sd_wb_slave
+        core.bus.add_slave(name="sdcard", slave=wb, region=SoCRegion(
+            origin = 0x3000_0000,
+            size   = 1024,
+        ))
+        core.bus.add_master(master=wbm, region=SoCRegion(origin=0x40000000, size=0x00800000))
 
 class NesInst(LiteXModule):
     def __init__(self, core, platform, sys_clk_freq):
@@ -103,6 +167,8 @@ class NesInst(LiteXModule):
             nes_picture_box_valid.eq(nes_box_valid1 & nes_box_valid2),
             video_fifo_read.eq(self.vout.ready & nes_picture_box_valid),
         ]
+        self.vid_select = CSRStorage(8)
+        
         hdmi_data = Signal(24)
         hdmi_row = Signal(11)
         hdmi_column = Signal(12)
@@ -153,7 +219,6 @@ class NesInst(LiteXModule):
                 ("b", 8)
         ]
         fifo = SyncFIFO(rgb_layout, 2048)
-        self.vid_select = CSRStorage(8)
         vidtest = PRBS31Generator(24)
         vidtest = ClockDomainsRenamer( {"sys" : "hdmi"} )(vidtest)
         self.fifo = ClockDomainsRenamer( {"sys": "hdmi"} )(fifo)
@@ -218,7 +283,10 @@ class NesInst(LiteXModule):
 
 # BaseSoC ------------------------------------------------------------------------------------------
 class BaseSoC(SoCCore):
-    
+    interrupt_map = {
+        "wbsdcard" : 4,
+    }
+    interrupt_map.update(SoCCore.interrupt_map)
 
     def __init__(self, toolchain="gowin", sys_clk_freq=48e6,
         with_led_chaser = False,
@@ -307,43 +375,7 @@ class BaseSoC(SoCCore):
             ))
 
         if with_wb_sdcard:
-            sdthing = SdCard(platform)
-            pads = platform.request("sdcard")
-            wb = wishbone.Interface(data_width=32, address_width=8, addressing="word")
-            sd_cmd_o = Signal()
-            sd_cmd_i = Signal()
-            sd_cmd_oe = Signal()
-            self.specials += Tristate(pads.cmd, sd_cmd_o, sd_cmd_oe, i=sd_cmd_i)
-            sd_dat_o = Signal(4)
-            sd_dat_i = Signal(4)
-            sd_dat_oe = Signal()
-            sys_clk = ClockSignal("sys")
-            self.specials += Tristate(pads.data, sd_dat_o, sd_dat_oe, i=sd_dat_i)
-            sd_wb_slave = Instance("sdc_controller",
-                i_wb_clk_i = sys_clk,
-                i_wb_rst_i = ResetSignal("sys"),
-                i_wb_dat_i = wb.dat_w,
-                o_wb_dat_o = wb.dat_r,
-                i_wb_adr_i = wb.adr[0:8],
-                i_wb_sel_i = wb.sel,
-                i_wb_we_i = wb.we,
-                i_wb_cyc_i = wb.cyc,
-                i_wb_stb_i = wb.stb,
-                o_wb_ack_o = wb.ack,
-                i_sd_cmd_dat_i = sd_cmd_i,
-                o_sd_cmd_out_o = sd_cmd_o,
-                o_sd_cmd_oe_o = sd_cmd_oe,
-                i_sd_dat_dat_i = sd_dat_i,
-                o_sd_dat_out_o = sd_dat_o,
-                o_sd_dat_oe_o = sd_dat_oe,
-                o_sd_clk_o_pad = pads.clk,
-                i_sd_clk_i_pad = sys_clk,
-                )
-            self.specials += sd_wb_slave
-            self.bus.add_slave(name="sdcard", slave=wb, region=SoCRegion(
-                origin = 0x3000_0000,
-                size   = 1024,
-            ))
+            self.sdcard = WbSdcard(self, platform, sys_clk_freq)
 
         # Buttons ----------------------------------------------------------------------------------
         if with_buttons:
