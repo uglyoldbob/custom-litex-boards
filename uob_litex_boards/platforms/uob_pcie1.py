@@ -15,15 +15,43 @@ from litex.build.lattice.programmer import LatticeProgrammer
 
 _io = [
     ("clock", 0, Pins("C14"), IOStandard("LVCMOS33")),
-    ("gsrn", 0, Pins("C13"), IOStandard("LVCMOS33")),
+    ("refclock", 0, Pins("M5"), IOStandard("LVCMOS33")),
+    ("refclock", 1, Pins("N11"), IOStandard("LVCMOS33")),
+    ("refclock", 2, Pins("N14"), IOStandard("LVCMOS33")),
+    ("reset", 0, Pins("H16"), IOStandard("LVCMOS33")),
+    ("interrupt", 0, Pins("D7"), IOStandard("LVCMOS33")),
+    ("interrupt", 1, Pins("D6"), IOStandard("LVCMOS33")),
+    ("interrupt", 2, Pins("D4"), IOStandard("LVCMOS33")),
     ("serial", 0,
         Subsignal("rx", Pins("A16"), IOStandard("LVCMOS33")),
         Subsignal("tx", Pins("B16"), IOStandard("LVCMOS33")),
     ),
     
-    ("user_led", 0, Pins("B16"), IOStandard("LVCMOS33")),
-    ("user_led", 1, Pins("D13"), IOStandard("LVCMOS33")),
-    ("user_led", 2, Pins("D14"), IOStandard("LVCMOS33")),
+    ("user_led", 0, Pins("G17"), IOStandard("LVCMOS33")),
+    ("user_led", 1, Pins("H17"), IOStandard("LVCMOS33")),
+    ("user_led", 2, Pins("H15"), IOStandard("LVCMOS33")),
+    
+    ("hdmi",
+        Subsignal("hpd", Pins("E16"), IOStandard("LVCMOS33")),
+        Subsignal("scl", Pins("D5"), IOStandard("LVCMOS33")),
+        Subsignal("sda", Pins("D17"), IOStandard("LVCMOS33")),
+        Subsignal("cec", Pins("E15"), IOStandard("LVCMOS33")),
+        Subsignal("clk_p", Pins("E7"), IOStandard("LVCMOS33")),
+        Subsignal("clk_n", Pins("E6"), IOStandard("LVCMOS33")),
+        Subsignal("data0_p", Pins("E5"), IOStandard("LVCMOS33")),
+        Subsignal("data1_p", Pins("F7"), IOStandard("LVCMOS33")),
+        Subsignal("data2_p", Pins("H3"), IOStandard("LVCMOS33")),
+        Subsignal("data0_n", Pins("E4"), IOStandard("LVCMOS33")),
+        Subsignal("data1_n", Pins("F6"), IOStandard("LVCMOS33")),
+        Subsignal("data2_n", Pins("H4"), IOStandard("LVCMOS33")),
+    ),
+    
+    ("jtag",
+        Subsignal("tms", Pins("E13"), IOStandard("LVCMOS33")),
+        Subsignal("tdi", Pins("E12"), IOStandard("LVCMOS33")),
+        Subsignal("tdo", Pins("E11"), IOStandard("LVCMOS33")),
+        Subsignal("tck", Pins("F12"), IOStandard("LVCMOS33")),
+    ),
     
     ("pcie", 0,
         Subsignal("rx_p", Pins("A13"), IOStandard("LVCMOS33")),
@@ -46,11 +74,6 @@ _io = [
         Subsignal("aux_power", Pins("C13"), IOStandard("LVCMOS33")),
     ),
 
-    ("camera_mclk", 0, Pins("M3"), IOStandard("LVCMOS18")),
-    ("camera_mclk", 1, Pins("M4"), IOStandard("LVCMOS18")),
-    ("camera_mclk", 2, Pins("M5"), IOStandard("LVCMOS18")),
-    ("camera_mclk", 3, Pins("M6"), IOStandard("LVCMOS18")),
-
     # MIPI camera modules
     # Note that use of MIPI_DPHY standard for + and LVCMOS12H for - is copied from Lattice PDC
     # MIPI pins are unconstrained to work around a Radiant 2.0 bug
@@ -67,16 +90,43 @@ _io = [
         Subsignal("dn", Pins("X X X X")),
     ),
     ("camera", 2,
-        Subsignal("clkp", Pins("W11"), IOStandard("MIPI_DPHY")),
-        Subsignal("clkn", Pins("Y11"), IOStandard("LVCMOS12H")),
-        Subsignal("dp", Pins("V11 W13 U12 R12"), IOStandard("MIPI_DPHY")),
-        Subsignal("dn", Pins("U11 V12 T12 P12"), IOStandard("LVCMOS12H")),
+        Subsignal("clkp", Pins("D1"), IOStandard("MIPI_DPHY")),
+        Subsignal("clkn", Pins("E2"), IOStandard("LVCMOS12H")),
+        Subsignal("dp", Pins("E1 C1 F1 B1"), IOStandard("MIPI_DPHY")),
+        Subsignal("dn", Pins("F2 D2 G2 C2"), IOStandard("LVCMOS12H")),
     ),
     ("camera", 3,
-        Subsignal("clkp", Pins("T13"), IOStandard("MIPI_DPHY")),
-        Subsignal("clkn", Pins("T14"), IOStandard("LVCMOS12H")),
-        Subsignal("dp", Pins("Y15 U15 V17 P13"), IOStandard("MIPI_DPHY")),
-        Subsignal("dn", Pins("Y16 V16 U16 R13"), IOStandard("LVCMOS12H")),
+        Subsignal("clkp", Pins("A4"), IOStandard("MIPI_DPHY")),
+        Subsignal("clkn", Pins("B4"), IOStandard("LVCMOS12H")),
+        Subsignal("dp", Pins("A3 A5 A2 A6"), IOStandard("MIPI_DPHY")),
+        Subsignal("dn", Pins("B3 B5 B2 B6"), IOStandard("LVCMOS12H")),
+    ),
+    ("camera", 4,
+        Subsignal("clkp", Pins("T1"), IOStandard("MIPI_DPHY")),
+        Subsignal("clkn", Pins("R1"), IOStandard("LVCMOS12H")),
+        Subsignal("dp", Pins("T2 R2 T3 N12"), IOStandard("MIPI_DPHY")),
+        Subsignal("dn", Pins("U2 R2 U3 N13"), IOStandard("LVCMOS12H")),
+    ),
+    
+    ("i2s_quad", 0,
+        Subsignal("sck", Pins("H13"), IOStandard("LVCMOS33")),
+        Subsignal("ws", Pins("H14"), IOStandard("LVCMOS33")),
+        Subsignal("data", Pins("H11 H12 J11 J10"), IOStandard("LVCMOS33")),
+    ),
+    ("i2s_quad", 1,
+        Subsignal("sck", Pins("J13"), IOStandard("LVCMOS33")),
+        Subsignal("ws", Pins("J12"), IOStandard("LVCMOS33")),
+        Subsignal("data", Pins("J15 J14 J17 J16"), IOStandard("LVCMOS33")),
+    ),
+    ("i2s_quad", 2,
+        Subsignal("sck", Pins("K17"), IOStandard("LVCMOS33")),
+        Subsignal("ws", Pins("K16"), IOStandard("LVCMOS33")),
+        Subsignal("data", Pins("K11 K10 L11 L10"), IOStandard("LVCMOS33")),
+    ),
+    
+    ("i2c", 0,
+        Subsignal("scl", Pins("L13"), IOStandard("LVCMOS33")),
+        Subsignal("sda", Pins("L12"), IOStandard("LVCMOS33")),
     ),
 ]
 
@@ -84,52 +134,7 @@ _io = [
 # Connectors ---------------------------------------------------------------------------------------
 
 _connectors = [
-    # Link to ECP5
-    ("UPSTREAM", {
-        "D0": "N14",
-        "D1": "M14",
-        "D2": "M16",
-        "D3": "M15",
-        "D4": "N15",
-        "D5": "N16",
-        "D6": "M17",
-        "D7": "M18",
-        "D8": "M19",
-        "D9": "M20",
-        "D10": "N19",
-        "D11": "N20",
-        "D12": "P19",
-        "D13": "P20",
-        "D14": "P17",
-        "D15": "P18",
-        "D16": "R17",
-        "D17": "R18",
-        "D18": "U20",
-        "D19": "T20",
-        "D20": "W20",
-        "D21": "V20",
-        "D22": "T18",
-        "D23": "U18",
-        "D24": "V18",
-        "D25": "V19",
-        "D26": "W19",
-
-        "PCLK_DOWN": "Y19",
-        "GSRN": "G13",
-        "SDA": "E20",
-        "SCL": "F20",
-
-        "UP_GPIO39": "F18",
-        "UP_GPIO40": "G19",
-        "UP_GPIO41": "L15",
-        "UP_GPIO42": "D17",
-    }
-    ),
-    # PMOD signal number:
-    #          1   2  3  4  7  8  9   10
-    ("PMOD0", "D10 D9 D7 D8 D6 D5 D4  D3"),
-    ("PMOD1", "E10 E9 E7 E8 E4 E3 E2  F1"),
-    ("PMOD2", "J2  J1 K2 K1 K3 K4 E17 F13"),
+    
 ]
 
 # Platform -----------------------------------------------------------------------------------------
