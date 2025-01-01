@@ -24,6 +24,7 @@
 #include <libfatfs/diskio.h>
 #include "wbsdcard.h"
 
+#include "mmc.h"
 #include "mmc_voltages.h"
 
 #ifdef DEBUG
@@ -99,7 +100,13 @@ struct ocsdc {
 	uint32_t *iobase;
 	int clk_freq;
 	int clk_div;
+	struct mmc mmc;
+	struct mmc_cmd cmd;
 };
+
+static struct ocsdc driver_data;
+
+int ocsdc_mmc_init(uint8_t dev_num, int base_addr, int sdclk_freq);
 
 static inline uint32_t ocsdc_read(struct ocsdc *dev, int offset)
 {
@@ -240,17 +247,15 @@ static int ocsdc_data_finish(struct ocsdc * dev) {
     }
 }
 
-static void ocsdc_setup_data_xfer(struct ocsdc * dev, struct mmc_cmd *cmd, struct mmc_data *data) {
+static void ocsdc_setup_data_xfer(struct ocsdc *dev, struct mmc_cmd *cmd, struct mmc_data *data) {
 
 	//invalidate cache
 	if (data->flags & MMC_DATA_READ) {
-		flush_dcache_range((unsigned long)data->dest,
-			(unsigned long)data->dest+data->blocksize*data->blocks);
+		flush_cpu_dcache();
 		ocsdc_write(dev, OCSDC_DST_SRC_ADDR, (uint32_t)data->dest);
 	}
 	else {
-		flush_dcache_range((unsigned long)data->src,
-			(unsigned long)data->src+data->blocksize*data->blocks);
+		flush_cpu_dcache();
 		ocsdc_write(dev, OCSDC_DST_SRC_ADDR, (uint32_t)data->src);
 	}
 	ocsdc_write(dev, OCSDC_BLOCK_SIZE, data->blocksize-1);
@@ -265,10 +270,8 @@ static void ocsdc_setup_data_xfer(struct ocsdc * dev, struct mmc_cmd *cmd, struc
  * a command pointer, and an optional data pointer.
  */
 static int
-ocsdc_send_cmd(struct mmc *mmc, struct mmc_cmd *cmd, struct mmc_data *data)
+ocsdc_send_cmd(struct ocsdc *dev, struct mmc *mmc, struct mmc_cmd *cmd, struct mmc_data *data)
 {
-	struct ocsdc * dev = mmc->priv;
-
 	int command = OCSDC_COMMAND_INDEX(cmd->cmdidx);
 	if (cmd->resp_type & MMC_RSP_PRESENT) {
 		if (cmd->resp_type & MMC_RSP_136)
@@ -305,10 +308,8 @@ ocsdc_send_cmd(struct mmc *mmc, struct mmc_cmd *cmd, struct mmc_data *data)
 }
 
 /* Initialize ocsdc controller */
-static int ocsdc_init(struct mmc *mmc)
+static int ocsdc_init(struct ocsdc *dev, struct mmc *mmc)
 {
-	struct ocsdc * dev = mmc->priv;
-
 	//disable all interrupts
 	ocsdc_write(dev, OCSDC_CMD_INT_ENABLE, 0);
 	ocsdc_write(dev, OCSDC_DAT_INT_ENABLE, 0);
@@ -322,58 +323,45 @@ static int ocsdc_init(struct mmc *mmc)
 }
 
 /* Set buswidth or clock as indicated by the GENERIC_MMC framework */
-static void ocsdc_set_ios(struct mmc *mmc)
+static void ocsdc_set_ios(struct ocsdc *dev)
 {
 	/* Support only 4 bit if */
-	ocsdc_set_buswidth(mmc->priv, mmc->bus_width);
+	ocsdc_set_buswidth(dev, dev->mmc.bus_width);
 
 	/* Set clock speed */
-	if (mmc->clock)
-		ocsdc_set_clock(mmc->priv, mmc->clock);
+	if (dev->mmc.clock)
+		ocsdc_set_clock(dev, dev->mmc.clock);
 }
 
 /* Called from board_mmc_init during startup. Can be called multiple times
  * depending on the number of slots available on board and controller
  */
-int ocsdc_mmc_init(u8 dev_num, int base_addr, int sdclk_freq)
+int ocsdc_mmc_init(uint8_t dev_num, int base_addr, int sdclk_freq)
 {
-	struct mmc *mmc;
-	struct ocsdc *priv;
+	struct ocsdc *priv = &driver_data;
 
-	mmc = malloc(sizeof(struct mmc));
-	if (!mmc) goto MMC_ALLOC;
-	priv = malloc(sizeof(struct ocsdc));
-	if (!priv) goto OCSDC_ALLOC;
-
-	memset(mmc, 0, sizeof(struct mmc));
 	memset(priv, 0, sizeof(struct ocsdc));
 
-	priv->iobase = base_addr;
+	priv->iobase = (uint32_t*)base_addr;
 	priv->clk_freq = sdclk_freq;
 	priv->clk_div = -1;
 
-	sprintf(mmc->name, "ocsdc");
-	mmc->priv = priv;
-	mmc->send_cmd = ocsdc_send_cmd;
-	mmc->set_ios = ocsdc_set_ios;
-	mmc->init = ocsdc_init;
-	mmc->getcd = NULL;
+	sprintf(priv->mmc.name, "ocsdc");
+	//priv->mmc.send_cmd = ocsdc_send_cmd;
+	//priv->mmc.set_ios = ocsdc_set_ios;
+	//priv->mmc.init = ocsdc_init;
+	priv->mmc.getcd = NULL;
 
-	mmc->f_min = priv->clk_freq/64; /*maximum clock division by 64 */
-	mmc->f_max = priv->clk_freq/2; /*minimum clock division by 2 */
-	mmc->voltages = ocsdc_get_voltage(priv);
-	mmc->host_caps = MMC_MODE_4BIT;
+	priv->mmc.f_min = priv->clk_freq/64; /*maximum clock division by 64 */
+	priv->mmc.f_max = priv->clk_freq/2; /*minimum clock division by 2 */
+	priv->mmc.voltages = ocsdc_get_voltage(priv);
+	priv->mmc.host_caps = MMC_MODE_4BIT;
 
-	mmc->b_max = 0xFFFF;
+	priv->mmc.b_max = 0xFFFF;
 
-	mmc_register(mmc);
+	//mmc_register(mmc);
 
 	return 0;
-
-OCSDC_ALLOC:
-	free(mmc);
-MMC_ALLOC:
-	return -1;
 }
 
 void wbsdcard_test(void)
