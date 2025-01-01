@@ -35,6 +35,8 @@ from litedram.phy import GENSDRPHY
 
 from litex_boards.platforms import sipeed_tang_nano_20k
 
+from uob_litex_boards.software.constants import SoftwareWbsdcard, SoftwareNes
+
 from nes import Nes
 from opencores_sdcard import SdCard
 
@@ -211,8 +213,8 @@ class NesInst(LiteXModule):
             o_rom_wb_we = wb_rom.we,
             o_cpu_oe = cpu_oe,
         )
-        self.nes_rom_port = core.sdram.crossbar.get_port(data_width=16)
-        self.nestest = LiteDRAMWishbone2Native(wb_rom, self.nes_rom_port)
+        #core.bus.add_master(master=self.wb_rom, region=SoCRegion(origin=0x40000000, size=0x00800000))
+        #TODO
         rgb_layout = [
                 ("r", 8),
                 ("g", 8),
@@ -433,6 +435,12 @@ def main():
         soc.add_sdcard()
 
     builder = Builder(soc, **parser.builder_argdict)
+    builder.add_external_software_package("libwbsdcard", SoftwareWbsdcard, cmd_srcs=["groot.o"])
+    builder.add_software_library("libwbsdcard")
+    builder.add_external_software_package("libnes", SoftwareNes)
+    builder.add_software_library("libnes")
+    builder.add_json(os.path.join(SoftwareNes, "whatever.json"))
+    
     if args.build:
         builder.build(**parser.toolchain_argdict)
 

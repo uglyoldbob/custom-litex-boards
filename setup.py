@@ -34,4 +34,7 @@ setup(
         "Programming Language :: Python",
     ],
     packages                      = find_packages(exclude=['test*']),
+    package_data={
+    	'uob_litex_boards': ['**'],
+    },
 )

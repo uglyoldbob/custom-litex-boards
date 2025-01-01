@@ -1,0 +1,5 @@
+{
+  "constants": {
+    "BIOS_EXTERNAL_PREBOOT": "1"
+  }
+}
