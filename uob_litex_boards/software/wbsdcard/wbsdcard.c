@@ -404,6 +404,6 @@ static DISKOPS SdCardDiskOps = {
 	.disk_read = sd_disk_read,
 };
 
-void fatfs_set_ops_sdcard(void) {
+void fatfs_set_ops_wbsdcard(void) {
 	FfDiskOps = &SdCardDiskOps;
 }

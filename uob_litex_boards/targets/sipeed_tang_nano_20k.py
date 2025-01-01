@@ -435,8 +435,9 @@ def main():
         soc.add_sdcard()
 
     builder = Builder(soc, **parser.builder_argdict)
-    builder.add_external_software_package("libwbsdcard", SoftwareWbsdcard, cmd_srcs=["groot.o"])
-    builder.add_software_library("libwbsdcard")
+    if args.with_wb_sdcard:
+        builder.add_external_software_package("libwbsdcard", SoftwareWbsdcard, cmd_srcs=["groot.o"])
+        builder.add_software_library("libwbsdcard")
     builder.add_external_software_package("libnes", SoftwareNes)
     builder.add_software_library("libnes")
     builder.add_json(os.path.join(SoftwareNes, "whatever.json"))

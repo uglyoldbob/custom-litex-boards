@@ -17,5 +17,6 @@ void bios_external_preboot(void);
 void bios_external_preboot()
 {
     printf("Ran the nes function\n");
+    fatfs_set_ops_wbsdcard();
     wbsdcard_test();
 }

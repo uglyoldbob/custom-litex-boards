@@ -1,6 +1,6 @@
 include ../include/generated/variables.mak
 include $(SOC_DIRECTORY)/software/common.mak
-OBJECTS=wbsdcard.o
+OBJECTS=mmc.o wbsdcard.o
 
 all: libwbsdcard.a
 
