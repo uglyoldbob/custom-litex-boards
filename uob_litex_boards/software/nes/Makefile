@@ -13,8 +13,12 @@ libnes.a: $(OBJECTS)
 # pull in dependency info for *existing* .o files
 -include $(OBJECTS:.o=.d)
 
+ifneq ($(LIBWBSDCARD_DIRECTORY),)
+    INC := -I$(LIBWBSDCARD_DIRECTORY)
+endif
+
 %.o: $(LIBNES_DIRECTORY)/%.c
-	 $(CC) -c $(CFLAGS) -I$(LIBWBSDCARD_DIRECTORY) $(1) $< -o $@
+	 $(CC) -c $(CFLAGS) $(INC) $(1) $< -o $@
 
 %.o: %.S
 	$(assemble)

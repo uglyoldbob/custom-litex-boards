@@ -146,7 +146,7 @@ class WbSdcard(LiteXModule):
             self.ev.int_cmd.trigger.eq(icmd),
         ]
         self.specials += sd_wb_slave
-        core.bus.add_slave(name="sdcard", slave=wb, region=SoCRegion(
+        core.bus.add_slave(name="wbsdcard", slave=wb, region=SoCRegion(
             origin = 0x3000_0000,
             size   = 1024,
         ))
@@ -285,10 +285,6 @@ class NesInst(LiteXModule):
 
 # BaseSoC ------------------------------------------------------------------------------------------
 class BaseSoC(SoCCore):
-    interrupt_map = {
-        "wbsdcard" : 4,
-    }
-    interrupt_map.update(SoCCore.interrupt_map)
 
     def __init__(self, toolchain="gowin", sys_clk_freq=48e6,
         with_led_chaser = False,
@@ -297,6 +293,7 @@ class BaseSoC(SoCCore):
         with_video_terminal = False,
         with_framebuffer = False,
         with_wb_sdcard = False,
+        with_nes = False,
         **kwargs):
 
         platform = sipeed_tang_nano_20k.Platform(toolchain=toolchain)
@@ -345,11 +342,12 @@ class BaseSoC(SoCCore):
                 l2_cache_size = 128,
             )
 
-        self.nes = NesInst(self, platform, sys_clk_freq)
-        self.bus.add_master(master=self.nes.wb_rom, region=SoCRegion(origin=0x40000000, size=0x00800000))
-        tp = platform.request_all("test_io")
-        self.comb += [tp.eq(self.nes.testo),
-        ]
+        if with_nes:
+            self.nes = NesInst(self, platform, sys_clk_freq)
+            self.bus.add_master(master=self.nes.wb_rom, region=SoCRegion(origin=0x40000000, size=0x00800000))
+            tp = platform.request_all("test_io")
+            self.comb += [tp.eq(self.nes.testo),
+            ]
 
 
         # Leds -------------------------------------------------------------------------------------
@@ -362,7 +360,10 @@ class BaseSoC(SoCCore):
         if with_video_terminal:
             print("Adding hdmi output")
             self.videophy = VideoGowinHDMIPHY(platform.request("hdmi"), clock_domain="hdmi")
-            self.add_nes_video_terminal(self.nes, phy=self.videophy, timings="1280x720@60Hz", clock_domain="hdmi")
+            if with_nes:
+                self.add_nes_video_terminal(self.nes, phy=self.videophy, timings="1280x720@60Hz", clock_domain="hdmi")
+            else:
+                self.add_nes_video_terminal(None, phy=self.videophy, timings="1280x720@60Hz", clock_domain="hdmi")
 
         # RGB Led ----------------------------------------------------------------------------------
         if with_rgb_led:
@@ -377,6 +378,10 @@ class BaseSoC(SoCCore):
             ))
 
         if with_wb_sdcard:
+            interrupt_map = {
+                "wbsdcard" : 4,
+            }
+            interrupt_map.update(SoCCore.interrupt_map)
             self.sdcard = WbSdcard(self, platform, sys_clk_freq)
 
         # Buttons ----------------------------------------------------------------------------------
@@ -402,8 +407,9 @@ class BaseSoC(SoCCore):
 
         # Connect Video Terminal to Video PHY.
         #self.comb += vt.source.connect(phy if isinstance(phy, stream.Endpoint) else phy.sink)
-        self.comb += vtg.source.connect(nes.vin)
-        self.comb += nes.vout.connect(phy if isinstance(phy, stream.Endpoint) else phy.sink)
+        if nes is not None:
+            self.comb += vtg.source.connect(nes.vin)
+            self.comb += nes.vout.connect(phy if isinstance(phy, stream.Endpoint) else phy.sink)
 
 # Build --------------------------------------------------------------------------------------------
 
@@ -426,6 +432,7 @@ def main():
         with_video_terminal = args.with_video_terminal,
         with_rgb_led = args.with_rgb_led,
         with_wb_sdcard = args.with_wb_sdcard,
+        wtih_nes = False,
         **parser.soc_argdict
     )
     

@@ -8,6 +8,7 @@ extern "C" {
 #include <generated/csr.h>
 
 void wbsdcard_test(void);
+void fatfs_set_ops_wbsdcard(void);
 
 #ifdef __cplusplus
 }

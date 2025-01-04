@@ -23,46 +23,42 @@
  * MA 02111-1307 USA
  */
 
-#include <config.h>
-#include <common.h>
-#include <command.h>
-#include <mmc.h>
-#include <part.h>
-#include <malloc.h>
-#include <linux/list.h>
-#include <div64.h>
+#include <system.h>
+#include <string.h>
+#include "mmc.h"
+#include "div64.h"
+#include "common.h"
+
+static int mmc_host_is_spi(struct mmc *mmc)
+{
+    return 0;
+}
 
 /* Set block count limit because of 16 bit register limit on some hardware*/
 #ifndef CONFIG_SYS_MMC_MAX_BLK_COUNT
 #define CONFIG_SYS_MMC_MAX_BLK_COUNT 65535
 #endif
 
-static struct list_head mmc_devices;
 static int cur_dev_num = -1;
 
-int __board_mmc_getcd(struct mmc *mmc) {
-	return -1;
-}
-
-int board_mmc_getcd(struct mmc *mmc)__attribute__((weak,
-	alias("__board_mmc_getcd")));
+struct mmc *mmc_device;
 
 #ifdef CONFIG_MMC_BOUNCE_BUFFER
 static int mmc_bounce_need_bounce(struct mmc_data *orig)
 {
-	ulong addr, len;
+	uint64_t addr, len;
 
 	if (orig->flags & MMC_DATA_READ)
-		addr = (ulong)orig->dest;
+		addr = (uint64_t)orig->dest;
 	else
-		addr = (ulong)orig->src;
+		addr = (uint64_t)orig->src;
 
 	if (addr % ARCH_DMA_MINALIGN) {
 		debug("MMC: Unaligned data destination address %08lx!\n", addr);
 		return 1;
 	}
 
-	len = (ulong)(orig->blocksize * orig->blocks);
+	len = (uint64_t)(orig->blocksize * orig->blocks);
 	if (len % ARCH_DMA_MINALIGN) {
 		debug("MMC: Unaligned data destination length %08lx!\n", len);
 		return 1;
@@ -74,7 +70,7 @@ static int mmc_bounce_need_bounce(struct mmc_data *orig)
 static int mmc_bounce_buffer_start(struct mmc_data *backup,
 					struct mmc_data *orig)
 {
-	ulong origlen, len;
+	uint64_t origlen, len;
 	void *buffer;
 
 	if (!orig)
@@ -106,7 +102,7 @@ static int mmc_bounce_buffer_start(struct mmc_data *backup,
 static void mmc_bounce_buffer_stop(struct mmc_data *backup,
 					struct mmc_data *orig)
 {
-	ulong len;
+	uint64_t len;
 
 	if (!orig)
 		return;
@@ -134,7 +130,7 @@ static inline void mmc_bounce_buffer_stop(struct mmc_data *backup,
 					struct mmc_data *orig) { }
 #endif
 
-int mmc_send_cmd(struct mmc *mmc, struct mmc_cmd *cmd, struct mmc_data *data)
+static int mmc_send_cmd(struct mmc *mmc, struct mmc_cmd *cmd, struct mmc_data *data)
 {
 	struct mmc_data backup;
 	int ret;
@@ -147,7 +143,7 @@ int mmc_send_cmd(struct mmc *mmc, struct mmc_cmd *cmd, struct mmc_data *data)
 
 #ifdef CONFIG_MMC_TRACE
 	int i;
-	u8 *ptr;
+	uint8_t *ptr;
 
 	printf("CMD_SEND:%d\n", cmd->cmdidx);
 	printf("\t\tARG\t\t\t 0x%08X\n", cmd->cmdarg);
@@ -178,7 +174,7 @@ int mmc_send_cmd(struct mmc *mmc, struct mmc_cmd *cmd, struct mmc_data *data)
 			for (i = 0; i < 4; i++) {
 				int j;
 				printf("\t\t\t\t\t%03d - ", i*4);
-				ptr = (u8 *)&cmd->response[i];
+				ptr = (uint8_t *)&cmd->response[i];
 				ptr += 3;
 				for (j = 0; j < 4; j++)
 					printf("%02X ", *ptr--);
@@ -200,7 +196,7 @@ int mmc_send_cmd(struct mmc *mmc, struct mmc_cmd *cmd, struct mmc_data *data)
 	return ret;
 }
 
-int mmc_send_status(struct mmc *mmc, int timeout)
+static int mmc_send_status(struct mmc *mmc, int timeout)
 {
 	struct mmc_cmd cmd;
 	int err, retries = 5;
@@ -228,7 +224,7 @@ int mmc_send_status(struct mmc *mmc, int timeout)
 		} else if (--retries < 0)
 			return err;
 
-		udelay(1000);
+		busy_wait_us(1000);
 
 	} while (timeout--);
 
@@ -244,7 +240,7 @@ int mmc_send_status(struct mmc *mmc, int timeout)
 	return 0;
 }
 
-int mmc_set_blocklen(struct mmc *mmc, int len)
+static int mmc_set_blocklen(struct mmc *mmc, int len)
 {
 	struct mmc_cmd cmd;
 
@@ -257,25 +253,16 @@ int mmc_set_blocklen(struct mmc *mmc, int len)
 
 struct mmc *find_mmc_device(int dev_num)
 {
-	struct mmc *m;
-	struct list_head *entry;
-
-	list_for_each(entry, &mmc_devices) {
-		m = list_entry(entry, struct mmc, link);
-
-		if (m->block_dev.dev == dev_num)
-			return m;
-	}
-
-	printf("MMC Device %d not found\n", dev_num);
-
-	return NULL;
+	if (dev_num == 0)
+	    return mmc_device;
+    else
+        return NULL;
 }
 
-static ulong mmc_erase_t(struct mmc *mmc, ulong start, lbaint_t blkcnt)
+static uint64_t mmc_erase_t(struct mmc *mmc, uint64_t start, lbaint_t blkcnt)
 {
 	struct mmc_cmd cmd;
-	ulong end;
+	uint64_t end;
 	int err, start_cmd, end_cmd;
 
 	if (mmc->high_capacity)
@@ -323,8 +310,8 @@ err_out:
 	return err;
 }
 
-static unsigned long
-mmc_berase(int dev_num, unsigned long start, lbaint_t blkcnt)
+static uint64_t
+mmc_berase(int dev_num, uint64_t start, lbaint_t blkcnt)
 {
 	int err = 0;
 	struct mmc *mmc = find_mmc_device(dev_num);
@@ -336,7 +323,7 @@ mmc_berase(int dev_num, unsigned long start, lbaint_t blkcnt)
 
 	if ((start % mmc->erase_grp_size) || (blkcnt % mmc->erase_grp_size))
 		printf("\n\nCaution! Your devices Erase group is 0x%x\n"
-			"The erase range would be change to 0x%lx~0x%lx\n\n",
+			"The erase range would be change to 0x%llx~0x%llx\n\n",
 		       mmc->erase_grp_size, start & ~(mmc->erase_grp_size - 1),
 		       ((start + blkcnt + mmc->erase_grp_size)
 		       & ~(mmc->erase_grp_size - 1)) - 1);
@@ -358,15 +345,15 @@ mmc_berase(int dev_num, unsigned long start, lbaint_t blkcnt)
 	return blk;
 }
 
-static ulong
-mmc_write_blocks(struct mmc *mmc, ulong start, lbaint_t blkcnt, const void*src)
+static uint64_t
+mmc_write_blocks(struct mmc *mmc, uint64_t start, lbaint_t blkcnt, const void*src)
 {
 	struct mmc_cmd cmd;
 	struct mmc_data data;
 	int timeout = 1000;
 
 	if ((start + blkcnt) > mmc->block_dev.lba) {
-		printf("MMC: block number 0x%lx exceeds max(0x%lx)\n",
+		printf("MMC: block number 0x%llx exceeds max(0x%llx)\n",
 			start + blkcnt, mmc->block_dev.lba);
 		return 0;
 	}
@@ -413,8 +400,8 @@ mmc_write_blocks(struct mmc *mmc, ulong start, lbaint_t blkcnt, const void*src)
 	return blkcnt;
 }
 
-static ulong
-mmc_bwrite(int dev_num, ulong start, lbaint_t blkcnt, const void*src)
+static uint64_t
+mmc_bwrite(int dev_num, uint64_t start, lbaint_t blkcnt, const void*src)
 {
 	lbaint_t cur, blocks_todo = blkcnt;
 
@@ -437,7 +424,7 @@ mmc_bwrite(int dev_num, ulong start, lbaint_t blkcnt, const void*src)
 	return blkcnt;
 }
 
-int mmc_read_blocks(struct mmc *mmc, void *dst, ulong start, lbaint_t blkcnt)
+static int mmc_read_blocks(struct mmc *mmc, void *dst, uint64_t start, lbaint_t blkcnt)
 {
 	struct mmc_cmd cmd;
 	struct mmc_data data;
@@ -475,7 +462,7 @@ int mmc_read_blocks(struct mmc *mmc, void *dst, ulong start, lbaint_t blkcnt)
 	return blkcnt;
 }
 
-static ulong mmc_bread(int dev_num, ulong start, lbaint_t blkcnt, void *dst)
+static uint64_t mmc_bread(int dev_num, uint64_t start, lbaint_t blkcnt, void *dst)
 {
 	lbaint_t cur, blocks_todo = blkcnt;
 
@@ -487,7 +474,7 @@ static ulong mmc_bread(int dev_num, ulong start, lbaint_t blkcnt, void *dst)
 		return 0;
 
 	if ((start + blkcnt) > mmc->block_dev.lba) {
-		printf("MMC: block number 0x%lx exceeds max(0x%lx)\n",
+		printf("MMC: block number 0x%llx exceeds max(0x%llx)\n",
 			start + blkcnt, mmc->block_dev.lba);
 		return 0;
 	}
@@ -507,12 +494,12 @@ static ulong mmc_bread(int dev_num, ulong start, lbaint_t blkcnt, void *dst)
 	return blkcnt;
 }
 
-int mmc_go_idle(struct mmc* mmc)
+static int mmc_go_idle(struct mmc* mmc)
 {
 	struct mmc_cmd cmd;
 	int err;
 
-	udelay(1000);
+	busy_wait_us(1000);
 
 	cmd.cmdidx = MMC_CMD_GO_IDLE_STATE;
 	cmd.cmdarg = 0;
@@ -523,13 +510,12 @@ int mmc_go_idle(struct mmc* mmc)
 	if (err)
 		return err;
 
-	udelay(2000);
+	busy_wait_us(2000);
 
 	return 0;
 }
 
-int
-sd_send_op_cond(struct mmc *mmc)
+static int sd_send_op_cond(struct mmc *mmc)
 {
 	int timeout = 1000;
 	int err;
@@ -566,7 +552,7 @@ sd_send_op_cond(struct mmc *mmc)
 		if (err)
 			return err;
 
-		udelay(1000);
+		busy_wait_us(1000);
 	} while ((!(cmd.response[0] & OCR_BUSY)) && timeout--);
 
 	if (timeout <= 0)
@@ -594,7 +580,7 @@ sd_send_op_cond(struct mmc *mmc)
 	return 0;
 }
 
-int mmc_send_op_cond(struct mmc *mmc)
+static int mmc_send_op_cond(struct mmc *mmc)
 {
 	int timeout = 10000;
 	struct mmc_cmd cmd;
@@ -613,7 +599,7 @@ int mmc_send_op_cond(struct mmc *mmc)
  	if (err)
  		return err;
 
- 	udelay(1000);
+ 	busy_wait_us(1000);
 
 	do {
 		cmd.cmdidx = MMC_CMD_SEND_OP_COND;
@@ -631,7 +617,7 @@ int mmc_send_op_cond(struct mmc *mmc)
 		if (err)
 			return err;
 
-		udelay(1000);
+		busy_wait_us(1000);
 	} while (!(cmd.response[0] & OCR_BUSY) && timeout--);
 
 	if (timeout <= 0)
@@ -658,7 +644,7 @@ int mmc_send_op_cond(struct mmc *mmc)
 }
 
 
-int mmc_send_ext_csd(struct mmc *mmc, u8 *ext_csd)
+static int mmc_send_ext_csd(struct mmc *mmc, uint8_t *ext_csd)
 {
 	struct mmc_cmd cmd;
 	struct mmc_data data;
@@ -680,7 +666,7 @@ int mmc_send_ext_csd(struct mmc *mmc, u8 *ext_csd)
 }
 
 
-int mmc_switch(struct mmc *mmc, u8 set, u8 index, u8 value)
+static int mmc_switch(struct mmc *mmc, uint8_t set, uint8_t index, uint8_t value)
 {
 	struct mmc_cmd cmd;
 	int timeout = 1000;
@@ -702,9 +688,9 @@ int mmc_switch(struct mmc *mmc, u8 set, u8 index, u8 value)
 
 }
 
-int mmc_change_freq(struct mmc *mmc)
+static int mmc_change_freq(struct mmc *mmc)
 {
-	ALLOC_CACHE_ALIGN_BUFFER(u8, ext_csd, 512);
+	ALLOC_CACHE_ALIGN_BUFFER(uint8_t, ext_csd, 512);
 	char cardtype;
 	int err;
 
@@ -764,7 +750,7 @@ int mmc_getcd(struct mmc *mmc)
 {
 	int cd;
 
-	cd = board_mmc_getcd(mmc);
+	cd = -1;
 
 	if ((cd < 0) && mmc->getcd)
 		cd = mmc->getcd(mmc);
@@ -772,7 +758,7 @@ int mmc_getcd(struct mmc *mmc)
 	return cd;
 }
 
-int sd_switch(struct mmc *mmc, int mode, int group, u8 value, u8 *resp)
+static int sd_switch(struct mmc *mmc, int mode, int group, uint8_t value, uint8_t *resp)
 {
 	struct mmc_cmd cmd;
 	struct mmc_data data;
@@ -793,12 +779,12 @@ int sd_switch(struct mmc *mmc, int mode, int group, u8 value, u8 *resp)
 }
 
 
-int sd_change_freq(struct mmc *mmc)
+static int sd_change_freq(struct mmc *mmc)
 {
 	int err;
 	struct mmc_cmd cmd;
-	ALLOC_CACHE_ALIGN_BUFFER(uint, scr, 2);
-	ALLOC_CACHE_ALIGN_BUFFER(uint, switch_status, 16);
+	ALLOC_CACHE_ALIGN_BUFFER(uint32_t, scr, 2);
+	ALLOC_CACHE_ALIGN_BUFFER(uint32_t, switch_status, 16);
 	struct mmc_data data;
 	int timeout;
 
@@ -866,7 +852,7 @@ retry_scr:
 	timeout = 4;
 	while (timeout--) {
 		err = sd_switch(mmc, SD_SWITCH_CHECK, 0, 1,
-				(u8 *)switch_status);
+				(uint8_t *)switch_status);
 
 		if (err)
 			return err;
@@ -890,7 +876,7 @@ retry_scr:
 		(mmc->host_caps & MMC_MODE_HS)))
 		return 0;
 
-	err = sd_switch(mmc, SD_SWITCH_SWITCH, 0, 1, (u8 *)switch_status);
+	err = sd_switch(mmc, SD_SWITCH_SWITCH, 0, 1, (uint8_t *)switch_status);
 
 	if (err)
 		return err;
@@ -932,12 +918,12 @@ static const int multipliers[] = {
 	80,
 };
 
-void mmc_set_ios(struct mmc *mmc)
+static void mmc_set_ios(struct mmc *mmc)
 {
 	mmc->set_ios(mmc);
 }
 
-void mmc_set_clock(struct mmc *mmc, uint clock)
+void mmc_set_clock(struct mmc *mmc, uint32_t clock)
 {
 	if (clock > mmc->f_max)
 		clock = mmc->f_max;
@@ -950,21 +936,21 @@ void mmc_set_clock(struct mmc *mmc, uint clock)
 	mmc_set_ios(mmc);
 }
 
-void mmc_set_bus_width(struct mmc *mmc, uint width)
+static void mmc_set_bus_width(struct mmc *mmc, uint32_t width)
 {
 	mmc->bus_width = width;
 
 	mmc_set_ios(mmc);
 }
 
-int mmc_startup(struct mmc *mmc)
+static int mmc_startup(struct mmc *mmc)
 {
 	int err, width;
-	uint mult, freq;
-	u64 cmult, csize, capacity;
+	uint32_t mult, freq;
+	uint64_t cmult, csize, capacity;
 	struct mmc_cmd cmd;
-	ALLOC_CACHE_ALIGN_BUFFER(u8, ext_csd, 512);
-	ALLOC_CACHE_ALIGN_BUFFER(u8, test_csd, 512);
+	ALLOC_CACHE_ALIGN_BUFFER(uint8_t, ext_csd, 512);
+	ALLOC_CACHE_ALIGN_BUFFER(uint8_t, test_csd, 512);
 	int timeout = 1000;
 
 #ifdef CONFIG_MMC_SPI_CRC_ON
@@ -1240,7 +1226,7 @@ int mmc_startup(struct mmc *mmc)
 	return 0;
 }
 
-int mmc_send_if_cond(struct mmc *mmc)
+static int mmc_send_if_cond(struct mmc *mmc)
 {
 	struct mmc_cmd cmd;
 	int err;
@@ -1275,9 +1261,9 @@ int mmc_register(struct mmc *mmc)
 	if (!mmc->b_max)
 		mmc->b_max = CONFIG_SYS_MMC_MAX_BLK_COUNT;
 
-	INIT_LIST_HEAD (&mmc->link);
+	//INIT_LIST_HEAD (&mmc->link);
 
-	list_add_tail (&mmc->link, &mmc_devices);
+	//list_add_tail (&mmc->link, &mmc_devices);
 
 	return 0;
 }
@@ -1347,33 +1333,9 @@ int mmc_init(struct mmc *mmc)
 	return err;
 }
 
-/*
- * CPU and board-specific MMC initializations.  Aliased function
- * signals caller to move on
- */
-static int __def_mmc_init(bd_t *bis)
-{
-	return -1;
-}
-
-int cpu_mmc_init(bd_t *bis) __attribute__((weak, alias("__def_mmc_init")));
-int board_mmc_init(bd_t *bis) __attribute__((weak, alias("__def_mmc_init")));
-
 void print_mmc_devices(char separator)
 {
-	struct mmc *m;
-	struct list_head *entry;
-
-	list_for_each(entry, &mmc_devices) {
-		m = list_entry(entry, struct mmc, link);
-
-		printf("%s: %d", m->name, m->block_dev.dev);
-
-		if (entry->next != &mmc_devices)
-			printf("%c ", separator);
-	}
-
-	printf("\n");
+	printf("%s: %d\n", mmc_device->name, mmc_device->block_dev.dev);
 }
 
 int get_mmc_num(void)
@@ -1381,13 +1343,10 @@ int get_mmc_num(void)
 	return cur_dev_num;
 }
 
-int mmc_initialize(bd_t *bis)
+int mmc_initialize(void)
 {
-	INIT_LIST_HEAD (&mmc_devices);
+	mmc_device = NULL;
 	cur_dev_num = 0;
-
-	if (board_mmc_init(bis) < 0)
-		cpu_mmc_init(bis);
 
 	print_mmc_devices(',');
 

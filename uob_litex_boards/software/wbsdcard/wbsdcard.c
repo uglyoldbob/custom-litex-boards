@@ -359,7 +359,7 @@ int ocsdc_mmc_init(uint8_t dev_num, int base_addr, int sdclk_freq)
 
 	priv->mmc.b_max = 0xFFFF;
 
-	//mmc_register(mmc);
+	mmc_register(&priv->mmc);
 
 	return 0;
 }
@@ -374,7 +374,7 @@ static DSTATUS sdcardstatus = STA_NOINIT;
 static int wbsdcard_init()
 {
     int ret = 0;
-    if (ocsdc_mmc_init(0, SDCARD_BASE, CONFIG_CLOCK_FREQUENCY) == 0)
+    if (ocsdc_mmc_init(0, WBSDCARD_BASE, CONFIG_CLOCK_FREQUENCY) == 0)
     {
         ret = 1;
     }
@@ -405,5 +405,6 @@ static DISKOPS SdCardDiskOps = {
 };
 
 void fatfs_set_ops_wbsdcard(void) {
+    mmc_initialize();
 	FfDiskOps = &SdCardDiskOps;
 }
