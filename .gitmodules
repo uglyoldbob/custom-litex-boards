@@ -1,3 +1,6 @@
 [submodule "uob_litex_boards/hw/i2srx/SV_I2S_RX_CORE"]
 	path = uob_litex_boards/hw/i2srx/SV_I2S_RX_CORE
 	url = https://github.com/rubinsteina13/SV_I2S_RX_CORE.git
+[submodule "uob_litex_boards/hw/USB_C_Industrial_Camera_FPGA_USB3"]
+	path = uob_litex_boards/hw/USB_C_Industrial_Camera_FPGA_USB3
+	url = https://github.com/circuitvalley/USB_C_Industrial_Camera_FPGA_USB3.git
