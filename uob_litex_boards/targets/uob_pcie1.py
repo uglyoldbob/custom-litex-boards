@@ -17,7 +17,7 @@ from litex.gen import *
 
 from uob_litex_boards.platforms import uob_pcie1
 from uob_litex_boards.hw.i2s import load_i2s_rx_files, I2SQuad
-from uob_litex_boards.mipi import MipiCsiMaster
+from uob_litex_boards.hw.mipicsi import load_mipi_csi_rx_files, MipiCsiMaster
 
 from litepcie.phy.crosslinknxpciephy import CrosslinkNxPCIEPHY
 
@@ -75,6 +75,7 @@ class BaseSoC(SoCCore):
         platform.add_platform_command("ldc_set_sysconfig {{MASTER_SPI_PORT=SERIAL}}")
         
         load_i2s_rx_files(platform)
+        load_mipi_csi_rx_files(platform)
 
         # CRG --------------------------------------------------------------------------------------
         self.crg = _CRG(platform, sys_clk_freq)
