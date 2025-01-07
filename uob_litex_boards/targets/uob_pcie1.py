@@ -16,12 +16,15 @@ from migen.genlib.resetsync import AsyncResetSynchronizer
 from litex.gen import *
 
 from uob_litex_boards.platforms import uob_pcie1
-from uob_litex_boards.i2s import I2SMaster
+from uob_litex_boards.hw.i2s import load_i2s_rx_files, I2SQuad
 from uob_litex_boards.mipi import MipiCsiMaster
+
+from litepcie.phy.crosslinknxpciephy import CrosslinkNxPCIEPHY
 
 from litex.soc.cores.hyperbus import HyperRAM
 from litex.soc.cores.i2c import I2CMaster
 
+from litex.soc.interconnect import wishbone
 from litex.soc.cores.ram import NXLRAM
 from litex.soc.cores.video import VideoHDMIPHY
 from litex.build.io import CRG
@@ -62,11 +65,6 @@ class _CRG(LiteXModule):
 # BaseSoC ------------------------------------------------------------------------------------------
 
 class BaseSoC(SoCCore):
-    mem_map = {
-        "rom":  0x00000000,
-        "sram": 0x40000000,
-        "csr":  0xf0000000,
-    }
     def __init__(self, sys_clk_freq=75e6, toolchain="radiant",
         hyperram        = "none",
         with_led_chaser = True,
@@ -75,11 +73,16 @@ class BaseSoC(SoCCore):
         **kwargs):
         platform = uob_pcie1.Platform(toolchain=toolchain)
         platform.add_platform_command("ldc_set_sysconfig {{MASTER_SPI_PORT=SERIAL}}")
+        
+        load_i2s_rx_files(platform)
 
         # CRG --------------------------------------------------------------------------------------
         self.crg = _CRG(platform, sys_clk_freq)
         
         self.i2cm0 = I2CMaster(platform.request("i2c"))
+        
+        pcie_pads = platform.request("pcie")
+        #self.pcie = CrosslinkNxPCIEPHY(platform, pcie_pads)
 
         # SoCCore -----------------------------------------_----------------------------------------
         # Disable Integrated SRAM since we want to instantiate LRAM specifically for it
@@ -115,9 +118,23 @@ class BaseSoC(SoCCore):
         self.mipi0 = MipiCsiMaster(platform.request("camera", number=2))
         self.mipi1 = MipiCsiMaster(platform.request("camera", number=3))
         self.mipi2 = MipiCsiMaster(platform.request("camera", number=4))
-        self.i2s_quad_0 = I2SMaster(platform.request("i2s_quad", number=0))
-        self.i2s_quad_1 = I2SMaster(platform.request("i2s_quad", number=1))
-        self.i2s_quad_2 = I2SMaster(platform.request("i2s_quad", number=2))
+        i2s_common = platform.request("i2s_main")
+        i2s_quad_0 = I2SQuad(platform.request("i2s_quad", number=0), i2s_common)
+        i2s_quad_1 = I2SQuad(platform.request("i2s_quad", number=1), i2s_common)
+        i2s_quad_2 = I2SQuad(platform.request("i2s_quad", number=2), i2s_common)
+        self.i2s_bus = wishbone.Interface(data_width=32, address_width=7, addressing="word")
+        self.bus.add_slave(name="audio", slave=self.i2s_bus, region = SoCRegion(origin=0x20000000, size=256))
+        def wbfilt0(a):
+            return  a == 0
+        def wbfilt1(a):
+            return  a == 16
+        def wbfilt2(a):
+            return  a == 32
+        a = []
+        a.append((wbfilt0, i2s_quad_0.wb))
+        a.append((wbfilt1, i2s_quad_1.wb))
+        a.append((wbfilt2, i2s_quad_2.wb))
+        self.i2s_decode = wishbone.Decoder(self.i2s_bus, a)
 
 # Build --------------------------------------------------------------------------------------------
 
